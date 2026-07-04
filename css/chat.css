@@ -68,7 +68,7 @@
 body {
     background: var(--bg-dark);
     color: var(--text-light);
-    min-height: 100dvh;
+    min-height: 100vh;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     overflow: hidden;
@@ -82,7 +82,7 @@ body {
     left: -300px;
     top: 0;
     width: 280px;
-    max-height: 100dvh;
+    max-height: 100vh;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     background: linear-gradient(180deg, #0b5e3b 0%, #094c31 100%);

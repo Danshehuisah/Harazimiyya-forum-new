@@ -41,7 +41,7 @@ table {
 body {
   background: #f4f6f8;
   color: #222;
-  min-height: 100dvh;
+  min-height: 100vh;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   display: flex;
@@ -54,7 +54,7 @@ body {
     left: -300px;
     top: 0;
     width: 280px;
-    height: 100dvh;
+    height: 100vh;
     background: linear-gradient(180deg, #0b5e3b 0%, #094c31 100%);
     color: white;
     box-shadow: 4px 0 30px rgba(0, 0, 0, 0.2);
