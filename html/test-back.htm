@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Back Button Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: #0b5e3b;
+            color: white;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            background: white;
+            color: #0b5e3b;
+            border: none;
+            border-radius: 10px;
+        }
+        .dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .dialog-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            color: #333;
+            max-width: 280px;
+        }
+        .dialog-content button {
+            margin: 10px;
+            padding: 10px 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Back Button Test Page</h1>
+<p>This is a test page to check if back button detection works.</p>
+<p>Click the back button on your browser or Android phone.</p>
+
+<div id="exitDialog" class="dialog hidden">
+    <div class="dialog-content">
+        <h2>Exit App?</h2>
+        <p>Are you sure you want to exit?</p>
+        <button id="cancelBtn">Cancel</button>
+        <button id="exitBtn">Exit</button>
+    </div>
+</div>
+
+<script>
+    console.log("Test page loaded");
+    
+    const dialog = document.getElementById('exitDialog');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const exitBtn = document.getElementById('exitBtn');
+    
+    let isExiting = false;
+    
+    function showDialog() {
+        console.log("Showing exit dialog");
+        dialog.classList.remove('hidden');
+    }
+    
+    function hideDialog() {
+        console.log("Hiding exit dialog");
+        dialog.classList.add('hidden');
+    }
+    
+    cancelBtn.onclick = function() {
+        console.log("Cancel clicked");
+        hideDialog();
+        isExiting = false;
+    };
+    
+    exitBtn.onclick = function() {
+        console.log("Exit clicked");
+        hideDialog();
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+            window.Capacitor.Plugins.App.exitApp();
+        } else {
+            alert("Would exit app on Android");
+        }
+    };
+    
+    // Handle back button
+    function onBackButton() {
+        console.log("Back button pressed!");
+        if (!isExiting) {
+            isExiting = true;
+            showDialog();
+            setTimeout(function() { isExiting = false; }, 1000);
+        }
+        return true;
+    }
+    
+    // For Capacitor
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+        const App = window.Capacitor.Plugins.App;
+        App.addListener('backButton', function() {
+            console.log("Capacitor back button detected");
+            onBackButton();
+        });
+        console.log("Capacitor back button listener added");
+    }
+    
+    // For Browser
+    window.addEventListener('popstate', function(event) {
+        console.log("Browser popstate event detected");
+        history.pushState(null, null, window.location.href);
+        onBackButton();
+    });
+    
+    // Initialize history state
+    history.pushState(null, null, window.location.href);
+    
+    console.log("Test page ready - press back button");
+</script>
+
+</body>
+</html>

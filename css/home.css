@@ -1,0 +1,846 @@
+/* Make everything scale properly */
+* {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Better touch targets for mobile */
+button, 
+.btn, 
+.menu-btn, 
+.close-sidebar,
+.logout-btn,
+.logout-btn-sidebar,
+.clickable {
+    min-height: 44px;  /* Good for fat fingers */
+    min-width: 44px;
+}
+
+/* Fix images */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Fix tables */
+table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: #f4f6f8;
+  color: #222;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ================= FIXED HEADER - Hamburger left, Title & Subtitle centered ================= */
+.app-header {
+  background: #0b5e3b;
+  color: white;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+}
+
+/* Hamburger Menu - Left side */
+.menu-btn {
+  background: white;
+  color: #0b5e3b;
+  border: none;
+  font-size: 1.25rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.menu-btn:hover {
+  background: #094c31;
+  color: white;
+  transform: scale(1.05);
+}
+
+/* Title and Subtitle Container - Centered */
+.header-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 0 15px;
+}
+
+/* Header Title */
+.app-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 4px 0; /* Small space between title and subtitle */
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Subtitle */
+.subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Empty div for flex spacing (to balance the hamburger) */
+.header-right {
+  width: 44px; /* Same width as hamburger to maintain center alignment */
+  flex-shrink: 0;
+}
+
+/* Layout */
+.container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+/* Card */
+.card {
+  background: white;
+  width: 100%;
+  max-width: 900px;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Welcome */
+.welcome-section h2 {
+  color: #0b5e3b;
+  margin-bottom: 0.5rem;
+}
+
+/* ================= STATS GRID - WITH TEXT HIGHLIGHTING DISABLED ================= */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.stat-box {
+  background: #f8f9fa;
+  padding: 1.2rem;
+  border-radius: 8px;
+  outline: 1px solid #bcdfd0;
+  text-align: center;
+  border-left: 4px solid #0b5e3b;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  /* ===== DISABLE TEXT HIGHLIGHTING ===== */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(11,94,59,0.15);
+}
+
+.stat-box:active {
+  transform: translateY(0);
+}
+
+.stat-box h3 {
+  font-size: 1.8rem;
+  color: #0b5e3b;
+  
+  /* ===== DISABLE TEXT HIGHLIGHTING ===== */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.stat-box p {
+  /* ===== DISABLE TEXT HIGHLIGHTING ===== */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Buttons */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.btn {
+  background: #0b5e3b;
+  color: white;
+  padding: 0.7rem 1.2rem;
+  text-decoration: none;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.btn:hover {
+  background: #094c31;
+  transform: translateY(-2px);
+}
+
+.logout-btn {
+  background: #dc3545;
+  color: white;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-height: 44px;
+  min-width: 100px;
+}
+
+.logout-btn:hover {
+  background: #b52a37;
+  transform: translateY(-2px);
+}
+
+/* Footer */
+.app-footer {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* ================= DEEPSEEK SIDEBAR (EXACTLY LIKE ADMIN) ================= */
+.deepseek-sidebar {
+    position: fixed;
+    left: -300px;
+    top: 0;
+    width: 280px;
+    max-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: linear-gradient(180deg, #0b5e3b 0%, #094c31 100%);
+    color: white;
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.2);
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1200;
+    overflow-y: auto;
+}
+
+.deepseek-sidebar.active {
+    left: 0;
+}
+
+/* Sidebar Header */
+.deepseek-sidebar .sidebar-header {
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.logo-area i {
+    font-size: 32px;
+    color: #ffd700;
+}
+
+.logo-area img {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    object-fit: cover !important;
+    border: 2px solid rgba(255, 215, 0, 0.5);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.logo-text {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: white;
+}
+
+.logo-area img:hover {
+    transform: scale(1.05);
+    border-color: #ffd700;
+    box-shadow: 0 6px 15px rgba(255, 215, 0, 0.4);
+}
+
+.logo-area[data-admin="true"] {
+    cursor: pointer;
+}
+
+.logo-area[data-admin="true"]:hover::after {
+    content: '\f030';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    left: 36px;
+    transform: translateY(-50%);
+    color: #ffd700;
+    font-size: 18px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.close-sidebar {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.3s;
+}
+
+.close-sidebar:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg);
+}
+
+/* User Profile */
+.user-profile {
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.user-avatar {
+    width: 56px;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: #ffd700;
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.user-avatar:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.user-avatar:hover::after {
+    content: '\f030';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    object-fit: cover;
+}
+
+.user-info h4 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+}
+
+.user-info p {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.user-info p i {
+    color: #ffd700;
+}
+
+/* Sidebar Menu */
+.sidebar-menu {
+    padding: 24px 0;
+}
+
+.menu-section {
+    margin-bottom: 24px;
+}
+
+.menu-title {
+    padding: 0 24px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.menu-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-items li {
+    margin: 2px 0;
+}
+
+.menu-items li a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 24px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.menu-items li a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding-left: 32px;
+}
+
+.menu-items li.active a {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    font-weight: 600;
+    border-left: 4px solid #ffd700;
+}
+
+.menu-items li a i {
+    width: 22px;
+    font-size: 18px;
+    color: #ffd700;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    bottom: 0;
+    background: #094c31;
+}
+
+.logout-btn-sidebar {
+    width: 100%;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: white;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.logout-btn-sidebar:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-2px);
+}
+
+/* Overlay */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: none;
+    z-index: 1100;
+}
+
+.overlay.active {
+    display: block;
+}
+
+/* Refresh Button */
+button[onclick="forceRefreshCount()"] {
+    background: #0b5e3b;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    min-height: 44px;
+}
+
+button[onclick="forceRefreshCount()"]:hover {
+    background: #094c31;
+    transform: translateY(-2px);
+}
+
+button[onclick="forceRefreshCount()"]:active {
+    transform: translateY(0);
+}
+
+/* ================= ANIMATIONS ================= */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ================= FIXED MOBILE STYLES ================= */
+@media (max-width: 768px) {
+    .app-header {
+        padding: 0.8rem 1rem;
+        min-height: 70px;
+    }
+    
+    .menu-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+    
+    .header-right {
+        width: 40px;
+    }
+    
+    .app-header h1 {
+        font-size: 1.2rem;
+        margin-bottom: 3px;
+    }
+    
+    .subtitle {
+        font-size: 0.7rem;
+    }
+    
+    .container {
+        padding: 1rem;
+    }
+    
+    .card {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+    
+    .stat-box {
+        padding: 0.8rem;
+    }
+    
+    .stat-box h3 {
+        font-size: 1.5rem;
+    }
+    
+    .actions {
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+    
+    .btn {
+        width: 100%;
+        text-align: center;
+        padding: 0.8rem;
+        justify-content: center;
+    }
+    
+    .welcome-section h2 {
+        font-size: 1.3rem;
+    }
+    
+    button[onclick="forceRefreshCount()"] {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .logo-area img {
+        width: 42px !important;
+        height: 42px !important;
+    }
+    
+    .logo-area i {
+        font-size: 28px;
+    }
+    
+    .logo-text {
+        font-size: 18px;
+    }
+    
+    .logo-area[data-admin="true"]:hover::after {
+        left: 32px;
+        font-size: 16px;
+        padding: 4px 8px;
+    }
+    
+    .user-avatar:hover::after {
+        font-size: 16px;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .app-header {
+        padding: 0.6rem 0.8rem;
+        min-height: 65px;
+    }
+    
+    .menu-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+    }
+    
+    .header-right {
+        width: 36px;
+    }
+    
+    .app-header h1 {
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+    
+    .subtitle {
+        font-size: 0.6rem;
+    }
+    
+    .stat-box h3 {
+        font-size: 1.2rem;
+    }
+    
+    .welcome-section h2 {
+        font-size: 1.1rem;
+    }
+    
+    .logo-area img {
+        width: 38px !important;
+        height: 38px !important;
+    }
+    
+    .logo-area i {
+        font-size: 24px;
+    }
+    
+    .logo-text {
+        font-size: 16px;
+    }
+    
+    .logo-area[data-admin="true"]:hover::after {
+        left: 28px;
+        font-size: 14px;
+        padding: 3px 6px;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+    .app-header h1 {
+        font-size: 0.9rem;
+    }
+    
+    .subtitle {
+        font-size: 0.55rem;
+    }
+    
+    .logo-area img {
+        width: 34px !important;
+        height: 34px !important;
+    }
+    
+    .logo-area i {
+        font-size: 22px;
+    }
+    
+    .logo-text {
+        font-size: 14px;
+    }
+    
+    .logo-area[data-admin="true"]:hover::after {
+        left: 26px;
+        font-size: 12px;
+        padding: 2px 5px;
+    }
+}
+
+/* Sidebar header padding adjustment */
+.sidebar-header {
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.close-sidebar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+
+
+
+
+/* ================= ANDROID BACK BUTTON & SIDEBAR FIXES ================= */
+@media (max-width: 768px) {
+    /* Improve sidebar touch interaction */
+    .deepseek-sidebar {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    /* Prevent body scroll when sidebar is open */
+    body.sidebar-open {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Smooth transitions */
+    .deepseek-sidebar,
+    .overlay {
+        will-change: transform, opacity;
+    }
+    
+    /* Better touch targets for sidebar items */
+    .menu-items li a {
+        padding: 15px 24px;
+        min-height: 56px;
+    }
+    
+    .close-sidebar {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* Add body class for when sidebar is open */
+.deepseek-sidebar.active ~ .overlay ~ .app-header,
+.deepseek-sidebar.active ~ .overlay ~ .container,
+.deepseek-sidebar.active ~ .overlay ~ .app-footer {
+    pointer-events: none;
+    user-select: none;
+}

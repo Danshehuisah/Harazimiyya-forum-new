@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gallery | Harazimiyya Forum</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+<!-- Favicon to prevent 404 error -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+
+<!-- Font Awesome for Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<link rel="stylesheet" href="../css/gallery.css">
+<!-- Capacitor App Plugin for back button handling -->
+<script src="https://unpkg.com/@capacitor/core/dist/index.js"></script>
+
+<meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' https:;
+    connect-src 'self' https://lsbgpfvxmngjynvccujw.supabase.co https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://api.cloudinary.com https://*.cloudinary.com;
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.cloudinary.com https://*.supabase.co https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+    font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+    img-src 'self' data: https: https://*.cloudinary.com https://*.supabase.co blob:;
+    media-src 'self' https://*.cloudinary.com https://*.supabase.co blob: data:;
+    frame-src 'self' https://*.youtube.com https://*.vimeo.com;
+    worker-src 'self' blob:;
+">
+
+<!-- Navigation handler (must be loaded after Capacitor) -->
+<script src="../js/navigation.js"></script>
+</head>
+<body>
+
+<!-- DeepSeek Sidebar -->
+<div class="deepseek-sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="logo-area">
+            <i class="fas fa-mosque"></i>
+            <span class="logo-text">Harazimiyya</span>
+        </div>
+        <button class="close-sidebar" id="closeSidebar">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <div class="user-profile">
+        <div class="user-avatar">
+            <i class="fas fa-user"></i>
+        </div>
+        <div class="user-info">
+            <h4 id="userName">Member</h4>
+            <p><i class="fas fa-user-tag"></i> Community Member</p>
+        </div>
+    </div>
+    
+    <div class="sidebar-menu">
+        <div class="menu-section">
+            <h5 class="menu-title">MAIN</h5>
+            <ul class="menu-items">
+                <li>
+                    <a href="home.html">
+                        <i class="fas fa-home"></i>
+                        <span>Home</span>
+                    </a>
+                </li>
+               
+                <li>
+                    <a href="chat.html">
+                        <i class="fas fa-comments"></i>
+                        <span>Chat</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="events.html">
+                        <i class="fas fa-calendar"></i>
+                        <span>Programs</span>
+                    </a>
+                </li>
+                <li class="active">
+                    <a href="gallery.html">
+                        <i class="fas fa-images"></i>
+                        <span>Gallery</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="sheikh-history.html">
+                        <i class="fas fa-star-and-crescent"></i>
+                        <span>Sheikh History</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="announcement.html">
+                        <i class="fas fa-bullhorn"></i>
+                        <span>Announcements</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="map.html">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Map</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="admin.html">
+                        <i class="fas fa-user-shield"></i>
+                        <span>Admin</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="sidebar-footer">
+        <button class="logout-btn-sidebar" id="logoutBtn">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+        </button>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay"></div>
+
+<!-- MAIN -->
+<main class="main-content">
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <button id="openSidebar" class="menu-btn"><i class="fas fa-bars"></i></button>
+            <h1>Gallery</h1>
+        </div>
+        <button id="addMediaBtn" class="primary-btn">
+            <i class="fas fa-plus"></i> Add
+        </button>
+    </div>
+
+    <section id="galleryGrid" class="gallery-grid"></section>
+</main>
+
+<!-- TIKTOK-STYLE UPLOAD MODAL - CORRECTLY PLACED OUTSIDE SIDEBAR -->
+<div id="tiktokUploadModal" class="tiktok-upload-modal hidden">
+    <div class="tiktok-upload-container">
+        <div class="tiktok-upload-header">
+            <h3><i class="fas fa-cloud-upload-alt" style="margin-right: 8px;"></i>Upload to Gallery</h3>
+            <button class="tiktok-close-btn" id="closeTiktokModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="tiktok-upload-body">
+            <!-- Media Type Selector -->
+            <div class="tiktok-type-selector">
+                <button class="tiktok-type-btn image active" id="tiktokTypeImage">
+                    <i class="fas fa-image"></i>
+                    <span>Image</span>
+                </button>
+                <button class="tiktok-type-btn video" id="tiktokTypeVideo">
+                    <i class="fas fa-video"></i>
+                    <span>Video</span>
+                </button>
+            </div>
+            
+            <!-- Title Input -->
+            <div class="tiktok-title-input">
+                <label>
+                    <i class="fas fa-heading"></i>
+                    Title
+                </label>
+                <input 
+                    type="text" 
+                    id="tiktokMediaTitle" 
+                    placeholder="Give your media a catchy title..." 
+                    maxlength="100"
+                >
+            </div>
+            
+            <!-- File Upload Area -->
+            <div class="tiktok-file-upload">
+                <label>
+                    <i class="fas fa-file"></i>
+                    Media File
+                </label>
+                <div class="tiktok-drop-zone" id="tiktokDropZone">
+                    <div class="tiktok-drop-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="tiktok-drop-text">
+                        Drag and drop your file here
+                    </div>
+                    <div class="tiktok-drop-subtext" id="tiktokFileHint">
+                        Supports: JPG, PNG, GIF, MP4 (Max 50MB)
+                    </div>
+                    <button class="tiktok-browse-btn" id="tiktokBrowseBtn">
+                        <i class="fas fa-folder-open"></i>
+                        Browse Files
+                    </button>
+                    <input 
+                        type="file" 
+                        id="tiktokMediaFile" 
+                        class="tiktok-file-input" 
+                        accept="image/*,video/*"
+                    >
+                </div>
+            </div>
+            
+            <!-- File Preview Area -->
+            <div id="tiktokPreviewArea"></div>
+            
+            <!-- File Requirements -->
+            <div class="tiktok-file-reqs">
+                <span><i class="fas fa-check-circle"></i> Max size: 50MB</span>
+                <span><i class="fas fa-check-circle"></i> Images: JPG, PNG, GIF</span>
+                <span><i class="fas fa-check-circle"></i> Videos: MP4</span>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="tiktok-actions">
+                <button class="tiktok-upload-btn" id="tiktokSaveMediaBtn">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Upload to Cloudinary</span>
+                </button>
+                <button class="tiktok-cancel-btn" id="tiktokCancelBtn">
+                    <i class="fas fa-times"></i>
+                    <span>Cancel</span>
+                </button>
+            </div>
+            
+            <!-- Upload Progress -->
+            <div id="tiktokProgress" class="tiktok-progress hidden">
+                <div class="tiktok-progress-icon">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <div class="tiktok-progress-bar">
+                    <div class="tiktok-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="tiktok-progress-text">0%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/gallery.js"></script>
+
+
+
+</body>
+</html>
