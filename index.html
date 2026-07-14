@@ -14,22 +14,22 @@
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Capacitor App Plugin for back button handling -->
-<script src="https://unpkg.com/@capacitor/core/dist/index.js"></script>
+    <script src="https://unpkg.com/@capacitor/core/dist/index.js"></script>
 
-<meta http-equiv="Content-Security-Policy" content="
-    default-src 'self' https:;
-    connect-src 'self' https://lsbgpfvxmngjynvccujw.supabase.co https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://api.cloudinary.com https://*.cloudinary.com;
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.cloudinary.com https://*.supabase.co https://cdnjs.cloudflare.com;
-    style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
-    font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
-    img-src 'self' data: https: https://*.cloudinary.com https://*.supabase.co blob:;
-    media-src 'self' https://*.cloudinary.com https://*.supabase.co blob: data:;
-    frame-src 'self' https://*.youtube.com https://*.vimeo.com;
-    worker-src 'self' blob:;
-">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' https:;
+        connect-src 'self' https://lsbgpfvxmngjynvccujw.supabase.co https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://api.cloudinary.com https://*.cloudinary.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.cloudinary.com https://*.supabase.co https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+        font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+        img-src 'self' data: https: https://*.cloudinary.com https://*.supabase.co blob:;
+        media-src 'self' https://*.cloudinary.com https://*.supabase.co blob: data:;
+        frame-src 'self' https://*.youtube.com https://*.vimeo.com;
+        worker-src 'self' blob:;
+    ">
 
-<!-- Navigation handler (must be loaded after Capacitor) -->
-<script src="../js/navigation.js"></script>
+    <!-- Navigation handler (must be loaded after Capacitor) -->
+    <script src="../js/navigation.js"></script>
 </head>
 <body>
     <header class="app-header">
@@ -40,7 +40,19 @@
     <main class="container">
         <!-- Login Card -->
         <section class="card" id="authCard">
-            <h2>Welcome Back</h2>
+            <h2> Welcome Back</h2>
+            <p class="card-subtitle">Sign in to continue</p>
+
+            <!-- Google Button -->
+            <button id="googleLoginBtn" class="btn-google">
+                <img src="icons/google-svg.svg" alt="Google" class="google-icon">
+                Continue with Google
+            </button>
+
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
             <input type="email" id="email" placeholder="Email Address" />
             
             <div class="password-container">
@@ -62,7 +74,19 @@
 
         <!-- Register Card -->
         <section class="card hidden" id="registerCard">
-            <h2>Join Our Community</h2>
+            <h2>🌟 Join Our Community</h2>
+            <p class="card-subtitle">Create your account to get started</p>
+
+            <!-- Google Button -->
+            <button id="googleRegisterBtn" class="btn-google">
+                <img src="icons/google-svg.svg" alt="Google" class="google-icon">
+                Continue with Google
+            </button>
+
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
             <input type="text" id="regName" placeholder="Full Name" />
             <input type="email" id="regEmail" placeholder="Email Address (must be @gmail.com)" />
             
@@ -84,7 +108,7 @@
             <p class="switch">Already have an account? <span id="showLogin">Login</span></p>
         </section>
         
-        <!-- Forgot Password Card (NEW) -->
+        <!-- Forgot Password Card -->
         <section class="card hidden" id="forgotCard">
             <h2>Reset Password</h2>
             <p style="text-align: center; margin-bottom: 15px; color: #666; font-size: 0.9rem;">

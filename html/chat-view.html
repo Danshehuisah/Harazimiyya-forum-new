@@ -120,6 +120,29 @@
 <div id="recordingTimer" class="recording-timer"></div>
 <audio id="audioPlayer"></audio>
 
+
+<!-- ================= ONLINE USERS MODAL ================= -->
+<div id="onlineUsersModal" class="modal hidden">
+    <div class="modal-content online-users-modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-users"></i> Online Users</h3>
+            <button class="modal-close" id="closeOnlineUsersModal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="onlineUsersList" class="online-users-list">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Loading online users...
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <span id="onlineUsersCount">0 users online</span>
+            <button class="btn btn-secondary" id="closeOnlineUsersBtn">Close</button>
+        </div>
+    </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>

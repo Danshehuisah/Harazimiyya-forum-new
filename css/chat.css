@@ -68,9 +68,7 @@
 body {
     background: var(--bg-dark);
     color: var(--text-light);
-    min-height: 100vh;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    height: 100vh;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     transition: background 0.3s, color 0.3s;
@@ -82,9 +80,7 @@ body {
     left: -300px;
     top: 0;
     width: 280px;
-    max-height: 100vh;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    height: 100vh;
     background: linear-gradient(180deg, #0b5e3b 0%, #094c31 100%);
     color: white;
     box-shadow: 4px 0 30px rgba(0,0,0,0.2);
@@ -650,7 +646,6 @@ body {
 
 .message {
     max-width: 75%;
-    /* max-width: 30%; */
     padding: 10px 14px;
     border-radius: 18px;
     font-size: 14px;
@@ -662,13 +657,11 @@ body {
     background: var(--message-sent);
     align-self: flex-end;
     color: var(--text-light);
-    max-width: 75%;
 }
 
 .message.received {
     background: var(--message-received);
     align-self: flex-start;
-    max-width: 75%;
     color: var(--text-light);
     border: 1px solid var(--border-color);
 }
@@ -1259,8 +1252,7 @@ body {
     }
     
     .message audio {
-        /* width: 200px; */
-        max-width: 75%;
+        width: 200px;
     }
 }
 
@@ -1317,8 +1309,8 @@ body {
     background: var(--primary-color);
     border-radius: 3px;
 }
-
 /* ================= AVATAR UPLOAD & GROUP MESSAGE AVATARS ================= */
+
 /* WhatsApp-style camera overlay */
 .user-avatar {
     position: relative;
@@ -1342,10 +1334,10 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 10px;
-    color: white;
+    color: #fff;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity .2s;
     pointer-events: none;
 }
 
@@ -1359,37 +1351,42 @@ body {
 }
 
 .user-avatar.loading::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
     width: 24px;
     height: 24px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
     border-radius: 50%;
-    animation: avatarSpin 0.8s linear infinite;
-    background: rgba(0,0,0,0.5);
-    border-radius: 50%;
+    animation: avatarSpin .8s linear infinite;
+    background: rgba(0,0,0,.45);
 }
 
 .user-avatar.loading img {
-    opacity: 0.5;
+    opacity: .5;
 }
 
 @keyframes avatarSpin {
-    to { transform: translate(-50%, -50%) rotate(360deg); }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
 }
 
-/* Message sender avatar in group chats */
+/* ================= GROUP CHAT MESSAGE LAYOUT ================= */
+
 .message-wrapper {
     display: flex;
     align-items: flex-start;
     gap: 8px;
+    margin-bottom: 8px;
+
+    /* Do NOT let the wrapper stretch */
+    width: fit-content;
     max-width: 75%;
 }
-
 .message-avatar {
     width: 28px;
     height: 28px;
@@ -1400,22 +1397,40 @@ body {
 }
 
 .message-content-wrapper {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    /* Prevent stretching */
+    flex: 0 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: 100%;
 }
 
-/* .message.received {
-    position: relative;
-    max-width: 100%;
-} */
+.message.received {
+    display: inline-block;
 
-/* For group messages with avatar */
+    /* Bubble should wrap only around its contents */
+    width: auto;
+    max-width: 100%;
+}
+
+.message.received img,
+.message.received video {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+}
+
 .message-with-avatar {
     display: flex;
-    gap: 8px;
     align-items: flex-start;
+    gap: 8px;
 }
 
-/* Typing indicator avatars */
+/* Typing avatars */
+
 .typing-avatars {
     display: flex;
     gap: 4px;
@@ -1428,7 +1443,8 @@ body {
     object-fit: cover;
 }
 
-/* Group member list avatar (if exists) */
+/* Group member avatar */
+
 .group-member-avatar {
     width: 32px;
     height: 32px;
@@ -1436,19 +1452,193 @@ body {
     object-fit: cover;
 }
 
-/* Image compression progress */
+/* Compression progress */
+
 .avatar-compression-progress {
     position: fixed;
-    bottom: 80px;
     left: 50%;
+    bottom: 80px;
     transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    color: white;
+    background: rgba(0,0,0,.8);
+    color: #fff;
     padding: 8px 16px;
     border-radius: 20px;
     font-size: 12px;
-    z-index: 5000;
     display: none;
     align-items: center;
     gap: 8px;
+    z-index: 5000;
+}
+
+
+
+
+
+
+
+/* ================= ONLINE USERS MODAL ================= */
+.online-users-modal {
+    max-width: 400px;
+    width: 90%;
+}
+
+.online-users-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+.online-users-modal .modal-header h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+.online-users-modal .modal-header h3 i {
+    color: #10b981;
+    margin-right: 8px;
+}
+
+.online-users-modal .modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.online-users-modal .modal-close:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-light);
+}
+
+.online-users-list {
+    max-height: 350px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.online-users-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.online-users-list::-webkit-scrollbar-track {
+    background: var(--bg-dark);
+}
+
+.online-users-list::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.online-user-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    transition: all 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.online-user-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.online-user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+
+.online-user-avatar.fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--primary-color);
+    background: rgba(11,94,59,0.2);
+}
+
+.online-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.online-user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-light);
+}
+
+.online-user-status {
+    font-size: 12px;
+    color: #10b981;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.online-user-status .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+    animation: pulse 1.5s infinite;
+}
+
+.online-user-time {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.online-users-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.online-users-empty i {
+    font-size: 48px;
+    opacity: 0.3;
+    margin-bottom: 12px;
+}
+
+.online-users-modal .modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 16px;
+}
+
+.online-users-modal .modal-footer .btn {
+    padding: 8px 20px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-light);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.online-users-modal .modal-footer .btn:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--primary-color);
+}
+
+.online-users-modal .modal-footer #onlineUsersCount {
+    font-size: 13px;
+    color: var(--text-muted);
 }

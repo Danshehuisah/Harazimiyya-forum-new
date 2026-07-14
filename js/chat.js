@@ -24,8 +24,8 @@ let currentProfile = null;
 let isAdmin = false;
 let isSmallAdmin = false;
 let messagesSubscription = null;
-let pollingInterval = null;
-let onlineUsersPolling = new Set();
+let presenceChannel = null; // Realtime Presence channel
+let onlineUsers = new Set(); // Realtime Presence users
 let mediaRecorder = null;
 let audioChunks = [];
 let recordingTimer = null;
@@ -143,6 +143,7 @@ async function initializeChat() {
     createJumpToBottomButton();
     setupBackToCommunityButton();
     setupGroupCreation();
+    setupOnlineUsersModal();
 }
 
 function showNotification(message, type = 'success', duration = 3000) {
@@ -627,9 +628,9 @@ window.deleteGroup = async function(groupId, groupName) {
     }
 };
 
-// ================= WORKING PRESENCE TRACKING (POLLING FALLBACK) =================
+// ================= REALTIME PRESENCE TRACKING =================
 async function setupPresenceTracking() {
-    console.log("🟢 Setting up presence tracking (polling mode)...");
+    console.log("Setting up realtime presence tracking...");
     
     if (!currentUser || !currentUser.id) {
         console.log("Waiting for user...");
@@ -637,74 +638,41 @@ async function setupPresenceTracking() {
         return;
     }
     
-    console.log("User ID:", currentUser.id);
-    
-    async function updateMyPresence() {
+    // Clean up existing channel
+    if (presenceChannel) {
         try {
-            const { error } = await window.supabase
-                .from('user_presence')
-                .upsert({ 
-                    user_id: currentUser.id, 
-                    last_seen: new Date().toISOString(),
-                    status: 'online',
-                    updated_at: new Date().toISOString()
-                });
-            
-            if (error) console.error("Presence update error:", error);
-            else console.log("✅ Presence updated");
-        } catch (err) {
-            console.error("Presence update exception:", err);
+            await presenceChannel.unsubscribe();
+        } catch(e) {
+            console.log("Error unsubscribing:", e);
         }
     }
     
-    await updateMyPresence();
-    
-    if (pollingInterval) clearInterval(pollingInterval);
-    pollingInterval = setInterval(updateMyPresence, 30000);
-    
-    await loadOnlineUsersPolling();
-    setInterval(() => loadOnlineUsersPolling(), 5000);
-    
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-            console.log("Tab visible, refreshing presence...");
-            updateMyPresence();
-            loadOnlineUsersPolling();
+    // Create presence channel
+    presenceChannel = window.supabase.channel('online-users', {
+        config: {
+            presence: {
+                key: currentUser.id
+            }
         }
     });
     
-    console.log("🟢 Presence tracking active");
-}
-
-async function loadOnlineUsersPolling() {
-    try {
-        const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+    // Handle presence sync
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        onlineUsers.clear();
         
-        const { data, error } = await window.supabase
-            .from('user_presence')
-            .select('user_id, last_seen, status')
-            .eq('status', 'online')
-            .gte('last_seen', thirtySecondsAgo);
+        Object.keys(state).forEach(userId => {
+            if (userId !== currentUser.id) {
+                onlineUsers.add(userId);
+            }
+        });
         
-        if (error) {
-            console.error("Error loading online users:", error);
-            return;
-        }
+        updateOnlineCount();
+        renderOnlineUsersList(); // Update modal if open
         
-        onlineUsersPolling.clear();
-        
-        if (data && data.length > 0) {
-            data.forEach(presence => {
-                if (presence.user_id !== currentUser.id) {
-                    onlineUsersPolling.add(presence.user_id);
-                }
-            });
-        }
-        
-        updateOnlineCountPolling();
-        
+        // Update private chat online status
         if (currentChatType === 'private' && currentChatId) {
-            const isOnline = onlineUsersPolling.has(currentChatId);
+            const isOnline = onlineUsers.has(currentChatId);
             const onlineDot = isOnline ? '<span class="online-status-dot"></span>' : '';
             const titleElement = document.getElementById('chatTitle');
             if (titleElement) {
@@ -713,17 +681,68 @@ async function loadOnlineUsersPolling() {
             }
         }
         
-        console.log(`📊 Online users count: ${onlineUsersPolling.size}`);
-        
-    } catch (err) {
-        console.error("Load online users exception:", err);
-    }
+        console.log(`Online users (realtime): ${onlineUsers.size}`);
+    });
+    
+    // Handle user joins
+    presenceChannel.on('presence', { event: 'join' }, ({ key }) => {
+        if (key !== currentUser.id && !onlineUsers.has(key)) {
+            onlineUsers.add(key);
+            updateOnlineCount();
+            renderOnlineUsersList(); // Update modal if open
+            console.log(`User joined: ${key}`);
+            
+            // Update private chat online status
+            if (currentChatType === 'private' && currentChatId === key) {
+                const onlineDot = '<span class="online-status-dot"></span>';
+                const titleElement = document.getElementById('chatTitle');
+                if (titleElement) {
+                    const currentText = titleElement.innerHTML.split('<span')[0];
+                    titleElement.innerHTML = `${currentText} ${onlineDot}`;
+                }
+            }
+        }
+    });
+    
+    // Handle user leaves
+    presenceChannel.on('presence', { event: 'leave' }, ({ key }) => {
+        if (key !== currentUser.id && onlineUsers.has(key)) {
+            onlineUsers.delete(key);
+            updateOnlineCount();
+            renderOnlineUsersList(); // Update modal if open
+            console.log(`User left: ${key}`);
+            
+            // Update private chat online status
+            if (currentChatType === 'private' && currentChatId === key) {
+                const titleElement = document.getElementById('chatTitle');
+                if (titleElement) {
+                    const currentText = titleElement.innerHTML.split('<span')[0];
+                    titleElement.innerHTML = `${currentText}`;
+                }
+            }
+        }
+    });
+    
+    // Subscribe and track presence
+    await presenceChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+            await presenceChannel.track({
+                user_id: currentUser.id,
+                user_name: currentProfile?.full_name || 'User',
+                avatar_url: currentProfile?.avatar_url || null,
+                online_at: new Date().toISOString()
+            });
+            console.log("✅ Presence tracking active - you are now visible to others");
+        } else {
+            console.log("Presence channel status:", status);
+        }
+    });
 }
 
-function updateOnlineCountPolling() {
+function updateOnlineCount() {
     const countEl = document.getElementById('onlineCount');
     if (countEl) {
-        const count = onlineUsersPolling.size;
+        const count = onlineUsers.size;
         countEl.innerHTML = `<i class="fas fa-circle"></i> ${count} online`;
         
         if (count > 0) {
@@ -734,20 +753,101 @@ function updateOnlineCountPolling() {
     }
 }
 
-async function cleanupPresence() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
+// ================= ONLINE USERS MODAL =================
+function setupOnlineUsersModal() {
+    const onlineCountEl = document.getElementById('onlineCount');
+    if (onlineCountEl) {
+        onlineCountEl.addEventListener('click', openOnlineUsersModal);
     }
     
-    try {
-        await window.supabase
-            .from('user_presence')
-            .delete()
-            .eq('user_id', currentUser.id);
-        console.log("Presence cleaned up on logout");
-    } catch (err) {
-        console.error("Error cleaning presence:", err);
+    const closeModalBtn = document.getElementById('closeOnlineUsersModal');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeOnlineUsersModal);
+    }
+    
+    const closeModalBtn2 = document.getElementById('closeOnlineUsersBtn');
+    if (closeModalBtn2) {
+        closeModalBtn2.addEventListener('click', closeOnlineUsersModal);
+    }
+    
+    const modal = document.getElementById('onlineUsersModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeOnlineUsersModal();
+            }
+        });
+    }
+}
+
+function openOnlineUsersModal() {
+    const modal = document.getElementById('onlineUsersModal');
+    if (!modal) return;
+    
+    modal.classList.remove('hidden');
+    renderOnlineUsersList();
+}
+
+function closeOnlineUsersModal() {
+    const modal = document.getElementById('onlineUsersModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function renderOnlineUsersList() {
+    const listContainer = document.getElementById('onlineUsersList');
+    const countContainer = document.getElementById('onlineUsersCount');
+    
+    if (!listContainer) return;
+    
+    if (onlineUsers.size === 0) {
+        listContainer.innerHTML = `
+            <div class="online-users-empty">
+                <i class="fas fa-user-slash"></i>
+                <p>No users currently online</p>
+            </div>
+        `;
+        if (countContainer) countContainer.textContent = '0 users online';
+        return;
+    }
+    
+    // Get the list of online user IDs
+    const onlineUserIds = Array.from(onlineUsers);
+    
+    // Find user profiles for online users
+    const onlineUserProfiles = allMembers.filter(member => 
+        onlineUserIds.includes(member.id)
+    );
+    
+    // Sort by name
+    onlineUserProfiles.sort((a, b) => 
+        (a.full_name || '').localeCompare(b.full_name || '')
+    );
+    
+    let html = '';
+    onlineUserProfiles.forEach(user => {
+        const avatarUrl = getAvatarUrl(user);
+        const name = user.full_name || 'Unknown User';
+        
+        html += `
+            <div class="online-user-item">
+                <img src="${avatarUrl}" class="online-user-avatar" 
+                     onerror="this.classList.add('fallback'); this.innerHTML='<i class=\\'fas fa-user\\'></i>'; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\'/%3E'">
+                <div class="online-user-info">
+                    <div class="online-user-name">${escapeHtml(name)}</div>
+                    <div class="online-user-status">
+                        <span class="status-dot"></span> Online
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    listContainer.innerHTML = html;
+    
+    if (countContainer) {
+        countContainer.textContent = `${onlineUserProfiles.length} user${onlineUserProfiles.length !== 1 ? 's' : ''} online`;
     }
 }
 
@@ -1505,19 +1605,14 @@ function setupLogoutButtons() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.onclick = async () => {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
+            // Clean up presence channel before logout
+            if (presenceChannel) {
+                try {
+                    await presenceChannel.unsubscribe();
+                } catch(e) {
+                    console.log("Error cleaning up presence:", e);
+                }
             }
-            
-            try {
-                await window.supabase
-                    .from('user_presence')
-                    .delete()
-                    .eq('user_id', currentUser.id);
-            } catch (err) {
-                console.error("Error clearing presence:", err);
-            }
-            
             await window.supabase.auth.signOut();
             window.location.href = '../index.html';
         };
@@ -1662,7 +1757,7 @@ function createUnifiedSearch() {
                 const existingAvatar = titleContainer.querySelector('.private-chat-avatar');
                 if (existingAvatar) existingAvatar.remove();
                 
-                const isOnline = onlineUsersPolling.has(id);
+                const isOnline = onlineUsers.has(id);
                 const onlineDot = isOnline ? '<span class="online-status-dot"></span>' : '';
                 
                 const avatarImg = document.createElement('img');
@@ -1979,6 +2074,4 @@ window.handleReplyAction = handleReplyAction;
 window.handleDeleteMessage = handleDeleteMessage;
 window.scrollToMessage = scrollToMessage;
 
-console.log("✅ Chat.js loaded successfully with Realtime presence, profile pictures & recent searches (no timestamps)");
-
-messages
+console.log("✅ Chat.js loaded successfully with Realtime presence, profile pictures, recent searches & online users modal");

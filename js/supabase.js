@@ -59,6 +59,7 @@ console.log("🔧 Initializing Supabase...");
 
 if (typeof supabase === 'undefined') {
     console.error("❌ Supabase library not loaded!");
+    document.body.innerHTML += '<div style="color:red;padding:20px;">Error: Please check your internet connection and refresh the page.</div>';
 } else {
     console.log("✅ Supabase SDK loaded");
     
@@ -86,3 +87,4 @@ if (typeof supabase === 'undefined') {
         console.error("❌ Failed to create Supabase client:", err);
     }
 }
+

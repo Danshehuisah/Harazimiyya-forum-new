@@ -1,5 +1,5 @@
-// js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION
-// UPDATED: Uses OTP (6-digit code) instead of email link for verification
+// js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION & GOOGLE OAUTH
+// UPDATED: Added Google OAuth login/signup
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
@@ -30,6 +30,10 @@ function initializeAuth() {
     const authCard = document.getElementById('authCard');
     const registerCard = document.getElementById('registerCard');
     const forgotCard = document.getElementById('forgotCard');
+    
+    // Google buttons
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const googleRegisterBtn = document.getElementById('googleRegisterBtn');
     
     // Password toggle elements
     const togglePassword = document.getElementById('togglePassword');
@@ -62,6 +66,57 @@ function initializeAuth() {
     setupPasswordToggle(togglePassword, password);
     setupPasswordToggle(toggleRegPassword, regPassword);
     setupPasswordToggle(toggleRegConfirmPassword, regConfirmPassword);
+
+    // ================= GOOGLE OAUTH =================
+    // In auth.js - signInWithGoogle function
+async function signInWithGoogle() {
+    try {
+        const googleBtn = document.activeElement;
+        if (googleBtn) {
+            googleBtn.disabled = true;
+            googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to Google...';
+        }
+
+        // Use the correct path with /www/
+        const redirectTo = window.location.origin + '/www/html/auth-callback.html';
+
+        console.log("Redirecting to:", redirectTo);
+
+        const { data, error } = await window.supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: redirectTo,
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                }
+            }
+        });
+
+        if (error) throw error;
+
+    } catch (err) {
+        console.error("Google sign in error:", err);
+        showCustomAlert('Could not sign in with Google. Please try again.', 'error');
+        
+        const googleBtn = document.querySelector('#googleLoginBtn, #googleRegisterBtn');
+        if (googleBtn) {
+            googleBtn.disabled = false;
+            googleBtn.innerHTML = `
+                <img src="https://www.google.com/favicon.ico" alt="Google" class="google-icon">
+                Continue with Google
+            `;
+        }
+    }
+}
+
+    // Setup Google buttons
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', signInWithGoogle);
+    }
+    if (googleRegisterBtn) {
+        googleRegisterBtn.addEventListener('click', signInWithGoogle);
+    }
 
     // ================= SWITCH FORMS =================
     if (showRegister) {
