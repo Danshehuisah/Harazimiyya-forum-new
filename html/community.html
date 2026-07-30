@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat | Harazimiyya</title>
+    <title>Community Chat | Harazimiyya</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="../css/chat-view.css">
@@ -75,12 +75,13 @@
                 <i class="fas fa-arrow-left"></i>
             </button>
             <div class="header-avatar" id="chatAvatar">
-                <img src="" alt="Chat Avatar" id="chatAvatarImg" style="display: none;">
-                <div class="avatar-fallback" id="chatAvatarFallback"><i class="fas fa-user"></i></div>
+                <div class="avatar-fallback" style="background: rgba(255,215,0,0.15); color: #ffd700;">
+                    👑
+                </div>
             </div>
             <div class="header-info">
-                <h3 id="chatTitle">Loading...</h3>
-                <p class="header-subtitle" id="chatSubtitle">Online</p>
+                <h3 id="chatTitle">📌 Harazimiyya Community</h3>
+                <p class="header-subtitle" id="chatSubtitle">Public forum for all members</p>
             </div>
         </div>
         <div class="header-right">
@@ -124,7 +125,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
-<script src="../js/chat-view.js"></script>
+<script src="../js/community.js"></script>
 
 </body>
 </html>

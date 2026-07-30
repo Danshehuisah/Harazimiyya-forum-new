@@ -60,6 +60,7 @@ async function initializeChatList() {
     }
     
     await loadUser();
+    await ensureCommunityChat();
     await loadMembers();
     await loadGroups();
     await setupPresenceTracking();
@@ -67,6 +68,80 @@ async function initializeChatList() {
     setupEventListeners();
     setupSidebar();
 }
+
+// ============================================================
+// ENSURE COMMUNITY CHAT EXISTS
+// ============================================================
+
+async function ensureCommunityChat() {
+    try {
+        const { data, error } = await window.supabase
+            .from('user_chats')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('chat_id', 'community')
+            .maybeSingle();
+        
+        if (data) {
+            console.log('✅ Community Chat already exists for user');
+            return;
+        }
+        
+        console.log('📌 Creating Community Chat for user...');
+        
+        const { data: latestMsg } = await window.supabase
+            .from('chat_messages')
+            .select('content, created_at, sender_id')
+            .is('receiver_id', null)
+            .is('group_id', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+        
+        let lastMessage = 'Welcome to Harazimiyya Community!';
+        let lastMessageTime = new Date().toISOString();
+        let lastSenderId = null;
+        
+        if (latestMsg && latestMsg.length > 0) {
+            const { data: sender } = await window.supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', latestMsg[0].sender_id)
+                .single();
+            
+            lastMessage = (sender?.full_name || 'Someone') + ': ' + (latestMsg[0].content || '');
+            lastMessageTime = latestMsg[0].created_at;
+            lastSenderId = latestMsg[0].sender_id;
+        }
+        
+        const { error: insertError } = await window.supabase
+            .from('user_chats')
+            .insert([{
+                user_id: currentUser.id,
+                chat_id: 'community',
+                chat_type: 'community',
+                chat_name: 'Harazimiyya Community',
+                last_message: lastMessage,
+                last_message_time: lastMessageTime,
+                last_message_sender_id: lastSenderId,
+                unread_count: 0,
+                is_pinned: true,
+                is_deleted: false
+            }]);
+        
+        if (insertError) {
+            console.error('Error creating community chat:', insertError);
+        } else {
+            console.log('✅ Community Chat added to user_chats');
+        }
+        
+    } catch (err) {
+        console.error('Error ensuring community chat:', err);
+    }
+}
+
+// ============================================================
+// LOAD USER
+// ============================================================
 
 async function loadUser() {
     try {
@@ -86,7 +161,6 @@ async function loadUser() {
         if (profileError) throw profileError;
         currentProfile = profile;
         
-        // Update sidebar
         document.getElementById('userName').textContent = profile.full_name || 'Member';
         updateSidebarAvatar();
         
@@ -95,6 +169,10 @@ async function loadUser() {
         console.error('Error loading user:', err);
     }
 }
+
+// ============================================================
+// LOAD MEMBERS & GROUPS
+// ============================================================
 
 async function loadMembers() {
     try {
@@ -128,7 +206,7 @@ async function loadGroups() {
 }
 
 // ============================================================
-// PRESENCE TRACKING (REALTIME)
+// PRESENCE TRACKING
 // ============================================================
 
 let presenceChannel = null;
@@ -242,7 +320,6 @@ function renderChats() {
             break;
         case 'all':
         default:
-            // Show all, but community first
             break;
     }
     
@@ -260,8 +337,8 @@ function renderChats() {
     // Sort: community first (if in 'all' tab), then by last_message_time
     if (currentTab === 'all') {
         filteredChats.sort((a, b) => {
-            if (a.is_community) return -1;
-            if (b.is_community) return 1;
+            if (a.chat_type === 'community') return -1;
+            if (b.chat_type === 'community') return 1;
             return new Date(b.last_message_time) - new Date(a.last_message_time);
         });
     } else {
@@ -284,7 +361,6 @@ function renderChats() {
         const chatId = chat.chat_id;
         const chatType = chat.chat_type;
         
-        // Community chat special class
         const communityClass = isCommunity ? 'community-chat' : '';
         
         html += `
@@ -326,7 +402,6 @@ function renderChats() {
     
     chatListEl.innerHTML = html;
     
-    // Add click listeners to chat items
     document.querySelectorAll('.chat-item').forEach(item => {
         item.addEventListener('click', () => {
             const chatId = item.dataset.chatId;
@@ -335,7 +410,6 @@ function renderChats() {
             openChat(chatId, chatType, chatName);
         });
         
-        // Long press for delete (mobile) / right click for delete
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const chatId = item.dataset.chatId;
@@ -345,6 +419,10 @@ function renderChats() {
         });
     });
 }
+
+// ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
 
 function formatTime(dateStr) {
     const date = new Date(dateStr);
@@ -373,12 +451,19 @@ function escapeHtml(str) {
 // ============================================================
 
 function openChat(chatId, chatType, chatName) {
-    // Navigate to chat view with parameters
-    window.location.href = `chat-view.html?chatId=${chatId}&chatType=${chatType}&chatName=${encodeURIComponent(chatName)}`;
+    if (chatType === 'community') {
+        window.location.href = `community.html`;
+    } else {
+        window.location.href = `chat-view.html?chatId=${chatId}&chatType=${chatType}&chatName=${encodeURIComponent(chatName)}`;
+    }
 }
 
 // ============================================================
 // SEARCH
+// ============================================================
+
+// ============================================================
+// SEARCH - SEARCHES BOTH MEMBERS AND GROUPS
 // ============================================================
 
 searchInput.addEventListener('input', function() {
@@ -426,7 +511,7 @@ function performSearch(query) {
     
     // Members section
     if (matchedMembers.length > 0) {
-        html += `<div class="search-section-title">MEMBERS (${matchedMembers.length})</div>`;
+        html += `<div class="search-section-title"><i class="fas fa-users"></i> MEMBERS (${matchedMembers.length})</div>`;
         matchedMembers.forEach(m => {
             const avatarUrl = m.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.full_name)}&background=0c8f5f&color=fff`;
             html += `
@@ -444,7 +529,7 @@ function performSearch(query) {
     
     // Groups section
     if (matchedGroups.length > 0) {
-        html += `<div class="search-section-title">GROUPS (${matchedGroups.length})</div>`;
+        html += `<div class="search-section-title"><i class="fas fa-layer-group"></i> GROUPS (${matchedGroups.length})</div>`;
         matchedGroups.forEach(g => {
             html += `
                 <div class="search-result-item" data-type="group" data-id="${g.id}" data-name="${escapeHtml(g.name)}">
@@ -462,7 +547,6 @@ function performSearch(query) {
     searchResults.innerHTML = html;
     searchResults.classList.add('show');
     
-    // Add click listeners
     document.querySelectorAll('.search-result-item').forEach(item => {
         item.addEventListener('click', function() {
             const type = this.dataset.type;
@@ -470,10 +554,8 @@ function performSearch(query) {
             const name = this.dataset.name;
             
             if (type === 'member') {
-                // Open private chat
                 openChat(id, 'private', name);
             } else if (type === 'group') {
-                // Open group chat
                 openChat(id, 'group', name);
             }
             
@@ -483,7 +565,6 @@ function performSearch(query) {
         });
     });
 }
-
 // ============================================================
 // TABS
 // ============================================================
@@ -519,7 +600,6 @@ function closeGroupModalFn() {
 closeGroupModal.addEventListener('click', closeGroupModalFn);
 cancelGroupBtn.addEventListener('click', closeGroupModalFn);
 
-// Click outside to close
 groupModal.addEventListener('click', (e) => {
     if (e.target === groupModal) closeGroupModalFn();
 });
@@ -548,7 +628,6 @@ async function loadGroupMembers() {
         });
         groupMemberList.innerHTML = html;
         
-        // Search filter
         groupMemberSearch.oninput = function() {
             const q = this.value.toLowerCase();
             document.querySelectorAll('.member-item').forEach(item => {
@@ -584,7 +663,6 @@ createGroupBtn.addEventListener('click', async function() {
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
     
     try {
-        // Create group
         const { data: group, error: groupError } = await window.supabase
             .from('chat_groups')
             .insert([{
@@ -597,7 +675,6 @@ createGroupBtn.addEventListener('click', async function() {
         
         if (groupError) throw groupError;
         
-        // Add members
         const membersToAdd = [
             { group_id: group.id, user_id: currentUser.id, role: 'admin' },
             ...selectedMembers.map(id => ({ group_id: group.id, user_id: id, role: 'member' }))
@@ -611,8 +688,6 @@ createGroupBtn.addEventListener('click', async function() {
         
         showNotification(`Group "${name}" created!`, 'success');
         closeGroupModalFn();
-        
-        // Reload chats
         await loadChats();
         
     } catch (err) {
@@ -677,9 +752,7 @@ deleteForAll.addEventListener('click', async function() {
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
     
     try {
-        // For groups: delete the group and all messages
         if (deleteTarget.chatType === 'group') {
-            // Check if user is admin of the group
             const { data: member, error: memberError } = await window.supabase
                 .from('chat_group_members')
                 .select('role')
@@ -696,15 +769,12 @@ deleteForAll.addEventListener('click', async function() {
                 return;
             }
             
-            // Delete group members, messages, and group
             await window.supabase.from('chat_group_members').delete().eq('group_id', deleteTarget.chatId);
             await window.supabase.from('chat_messages').delete().eq('group_id', deleteTarget.chatId);
             await window.supabase.from('chat_groups').delete().eq('id', deleteTarget.chatId);
             
             showNotification('Group deleted for everyone', 'success');
         } else {
-            // For private/community chats: just delete for all users
-            // For now, we'll just delete for the current user
             const { error } = await window.supabase
                 .rpc('delete_chat_for_user', {
                     p_user_id: currentUser.id,
@@ -791,18 +861,10 @@ function showNotification(message, type = 'success') {
 }
 
 // ============================================================
-// TYPING INDICATOR (Simulated)
-// ============================================================
-
-// This will be connected to the chat-view when users are typing
-// For now, we'll keep it as a placeholder
-
-// ============================================================
 // EVENT LISTENERS
 // ============================================================
 
 function setupEventListeners() {
-    // Close modals on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (!groupModal.classList.contains('hidden')) closeGroupModalFn();
