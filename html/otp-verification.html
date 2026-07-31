@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verify Email | Harazimiyya</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* ================= RESET & BASE ================= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a1f1a;
+            color: #f1f5f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        /* ================= CONTAINER ================= */
+        .container {
+            background: #12332b;
+            padding: 40px 32px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 100%;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            position: relative;
+            min-height: 380px;
+        }
+
+        /* ================= ICON ================= */
+        .icon {
+            text-align: center;
+            font-size: 48px;
+            color: #0c8f5f;
+            margin-bottom: 16px;
+        }
+
+        /* ================= HEADINGS ================= */
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #f1f5f4;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 14px;
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .subtitle strong {
+            color: #f1f5f4;
+            font-weight: 600;
+        }
+
+        /* ================= OTP INPUT ================= */
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .otp-input-container {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .otp-input {
+            width: 42px;
+            height: 52px;
+            background: #1a2f28;
+            color: #f1f5f4;
+            border: 2px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            outline: none;
+            transition: all 0.2s;
+            font-family: inherit;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .otp-input:focus {
+            border-color: #0c8f5f;
+            box-shadow: 0 0 0 3px rgba(12,143,95,0.2);
+            background: #1f3d33;
+        }
+
+        .otp-input.filled {
+            border-color: #0c8f5f;
+            background: #1f3d33;
+        }
+
+        .otp-input.error {
+            border-color: #dc2626;
+            animation: shake 0.3s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* ================= BUTTONS ================= */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: #0c8f5f;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #066649;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #9ca3af;
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.05);
+            color: #f1f5f4;
+        }
+
+        /* ================= MESSAGES ================= */
+        .message {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message.error {
+            background: rgba(220,38,38,0.15);
+            border: 1px solid rgba(220,38,38,0.2);
+            color: #f87171;
+            display: flex;
+        }
+
+        .message.success {
+            background: rgba(16,185,129,0.15);
+            border: 1px solid rgba(16,185,129,0.2);
+            color: #34d399;
+            display: flex;
+        }
+
+        .message i {
+            font-size: 18px;
+        }
+
+        /* ================= TIMER & LINKS ================= */
+        .footer-links {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .timer {
+            font-size: 13px;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timer span {
+            color: #0c8f5f;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer.expired {
+            color: #dc2626;
+        }
+
+        .timer.expired span {
+            color: #dc2626;
+        }
+
+        .resend-link {
+            font-size: 13px;
+            color: #0c8f5f;
+            cursor: pointer;
+            transition: color 0.2s;
+            background: none;
+            border: none;
+            font-family: inherit;
+        }
+
+        .resend-link:hover {
+            color: #066649;
+            text-decoration: underline;
+        }
+
+        .resend-link:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            text-decoration: none;
+        }
+
+        /* ================= SUCCESS OVERLAY ================= */
+        .success-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #12332b;
+            border-radius: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            z-index: 10;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .success-overlay.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .success-overlay .check-icon {
+            font-size: 64px;
+            color: #10b981;
+            margin-bottom: 16px;
+            animation: popIn 0.5s ease;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .success-overlay h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #f1f5f4;
+        }
+
+        .success-overlay p {
+            color: #9ca3af;
+            font-size: 15px;
+        }
+
+        .success-overlay .spinner {
+            margin-top: 20px;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #0c8f5f;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px 16px;
+                min-height: 340px;
+                max-width: 100%;
+            }
+
+            .otp-input {
+                width: 34px;
+                height: 44px;
+                font-size: 16px;
+            }
+
+            .otp-input-container {
+                gap: 5px;
+            }
+
+            .success-overlay .check-icon {
+                font-size: 48px;
+            }
+
+            .success-overlay h2 {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .otp-input {
+                width: 30px;
+                height: 40px;
+                font-size: 14px;
+            }
+
+            .otp-input-container {
+                gap: 4px;
+            }
+
+            .container {
+                padding: 20px 12px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .otp-input {
+                width: 26px;
+                height: 36px;
+                font-size: 12px;
+            }
+
+            .otp-input-container {
+                gap: 3px;
+            }
+        }
+
+        /* ================= UTILITY ================= */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container" id="appContainer">
+    
+    <!-- ===== MAIN CONTENT ===== -->
+    <div id="mainContent">
+        <div class="icon">
+            <i class="fas fa-envelope-circle-check"></i>
+        </div>
+        
+        <h1>Verify Your Email</h1>
+        <p class="subtitle">
+            We sent an 8-character code to<br>
+            <strong id="userEmailDisplay">your email</strong>
+        </p>
+
+        <div id="errorMessage" class="message error">
+            <i class="fas fa-exclamation-circle"></i>
+            <span id="errorText">Invalid code. Please try again.</span>
+        </div>
+
+        <!-- 8-Digit OTP Input -->
+        <div class="form-group">
+            <div class="otp-input-container" id="otpContainer">
+                <input type="text" class="otp-input" id="otp0" maxlength="1" inputmode="text" autofocus>
+                <input type="text" class="otp-input" id="otp1" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp2" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp3" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp4" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp5" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp6" maxlength="1" inputmode="text">
+                <input type="text" class="otp-input" id="otp7" maxlength="1" inputmode="text">
+            </div>
+        </div>
+
+        <button id="verifyBtn" class="btn btn-primary">
+            <i class="fas fa-check"></i> Verify Email
+        </button>
+
+        <button id="resendBtn" class="btn btn-secondary hidden">
+            <i class="fas fa-rotate-right"></i> Resend Code
+        </button>
+
+        <div class="footer-links">
+            <div class="timer" id="timerDisplay">
+                <i class="fas fa-clock"></i>
+                Code expires in <span id="timerCountdown">59:59</span>
+            </div>
+            <button id="resendLink" class="resend-link">
+                Didn't receive? Resend
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== SUCCESS OVERLAY ===== -->
+    <div class="success-overlay" id="successOverlay">
+        <div class="check-icon">
+            <i class="fas fa-circle-check"></i>
+        </div>
+        <h2>Email Verified!</h2>
+        <p>Redirecting to dashboard...</p>
+        <div class="spinner"></div>
+    </div>
+
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+
+<script>
+    // ============================================================
+    // 8-CHARACTER OTP VERIFICATION
+    // ============================================================
+
+    // DOM Elements
+    const otpInputs = [
+        document.getElementById('otp0'),
+        document.getElementById('otp1'),
+        document.getElementById('otp2'),
+        document.getElementById('otp3'),
+        document.getElementById('otp4'),
+        document.getElementById('otp5'),
+        document.getElementById('otp6'),
+        document.getElementById('otp7')
+    ];
+    
+    const verifyBtn = document.getElementById('verifyBtn');
+    const resendBtn = document.getElementById('resendBtn');
+    const resendLink = document.getElementById('resendLink');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    const timerCountdown = document.getElementById('timerCountdown');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const userEmailDisplay = document.getElementById('userEmailDisplay');
+    const successOverlay = document.getElementById('successOverlay');
+
+    // State
+    let timerInterval = null;
+    let timeLeft = 3600; // 1 hour
+    let isVerifying = false;
+    let isResending = false;
+    let isAutoFilled = false; // Track if OTP was auto-filled from clipboard
+
+    // ============================================================
+    // GET USER EMAIL
+    // ============================================================
+    async function getUserEmail() {
+        try {
+            const { data: { user }, error } = await window.supabase.auth.getUser();
+            if (error) throw error;
+            
+            if (user?.email) {
+                userEmailDisplay.textContent = user.email;
+                return user.email;
+            }
+            
+            const storedEmail = localStorage.getItem('pending_verification_email');
+            if (storedEmail) {
+                userEmailDisplay.textContent = storedEmail;
+                return storedEmail;
+            }
+            
+            userEmailDisplay.textContent = 'your email';
+            return null;
+        } catch (err) {
+            console.warn('Could not get user email:', err.message);
+            const storedEmail = localStorage.getItem('pending_verification_email');
+            if (storedEmail) {
+                userEmailDisplay.textContent = storedEmail;
+                return storedEmail;
+            }
+            return null;
+        }
+    }
+
+    // ============================================================
+    // CLEAR INPUTS
+    // ============================================================
+    function clearOTPInputs() {
+        otpInputs.forEach(input => {
+            input.value = '';
+            input.classList.remove('filled', 'error');
+        });
+        isAutoFilled = false;
+        otpInputs[0].focus();
+    }
+
+    // ============================================================
+    // OTP INPUT HANDLING
+    // ============================================================
+    function getOTP() {
+        return otpInputs.map(input => input.value).join('');
+    }
+
+    function setOTP(code) {
+        const chars = code.toString().split('');
+        otpInputs.forEach((input, index) => {
+            input.value = chars[index] || '';
+            input.classList.toggle('filled', !!chars[index]);
+        });
+        isAutoFilled = true;
+        focusNextEmpty();
+    }
+
+    function focusNextEmpty() {
+        for (let i = 0; i < otpInputs.length; i++) {
+            if (!otpInputs[i].value) {
+                otpInputs[i].focus();
+                return;
+            }
+        }
+        verifyBtn.focus();
+    }
+
+    function showError(text) {
+        errorText.textContent = text;
+        errorMessage.style.display = 'flex';
+        otpInputs.forEach(input => input.classList.add('error'));
+        
+        // If the error was from auto-fill, clear the inputs so user can type manually
+        if (isAutoFilled) {
+            setTimeout(() => {
+                clearOTPInputs();
+                isAutoFilled = false;
+            }, 1500);
+        }
+        
+        setTimeout(() => {
+            otpInputs.forEach(input => input.classList.remove('error'));
+        }, 2000);
+    }
+
+    function hideError() {
+        errorMessage.style.display = 'none';
+        otpInputs.forEach(input => input.classList.remove('error'));
+    }
+
+    // ============================================================
+    // VERIFY OTP (8-Character)
+    // ============================================================
+    async function verifyOTP() {
+        if (isVerifying) return;
+
+        const otp = getOTP();
+        if (otp.length !== 8 || !/^[A-Za-z0-9]{8}$/.test(otp)) {
+            showError('Please enter the complete 8-character code from your email');
+            return;
+        }
+
+        const email = localStorage.getItem('pending_verification_email');
+        if (!email) {
+            showError('No verification session found. Please sign up again.');
+            return;
+        }
+
+        isVerifying = true;
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+        hideError();
+
+        try {
+            const { data, error } = await window.supabase.auth.verifyOtp({
+                email: email,
+                token: otp,
+                type: 'email'
+            });
+
+            if (error) {
+                console.error('Verification error:', error);
+                showError(error.message || 'Invalid verification code. Please try again.');
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-check"></i> Verify Email';
+                isVerifying = false;
+                return;
+            }
+
+            // SUCCESS!
+            localStorage.removeItem('pending_verification_email');
+            showSuccessScreen();
+
+        } catch (err) {
+            console.error('Verification exception:', err);
+            showError('Something went wrong. Please try again.');
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = '<i class="fas fa-check"></i> Verify Email';
+            isVerifying = false;
+        }
+    }
+
+    // ============================================================
+    // SUCCESS SCREEN
+    // ============================================================
+    function showSuccessScreen() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        successOverlay.classList.add('show');
+
+        setTimeout(() => {
+            window.location.href = '../index.html';
+        }, 1500);
+    }
+
+    // ============================================================
+    // RESEND CODE
+    // ============================================================
+    async function resendCode() {
+        if (isResending) return;
+
+        const email = localStorage.getItem('pending_verification_email');
+        if (!email) {
+            showError('No email found. Please sign up again.');
+            return;
+        }
+
+        isResending = true;
+        resendLink.disabled = true;
+        resendLink.textContent = 'Sending...';
+        hideError();
+
+        try {
+            const { error } = await window.supabase.auth.resend({
+                type: 'signup',
+                email: email,
+                options: {
+                    emailRedirectTo: window.location.origin + '/otp-verification.html'
+                }
+            });
+
+            if (error) {
+                console.error('Resend error:', error);
+                showError(error.message || 'Failed to resend code. Please try again.');
+                resendLink.disabled = false;
+                resendLink.textContent = "Didn't receive? Resend";
+                isResending = false;
+                return;
+            }
+
+            startTimer();
+            resendBtn.classList.add('hidden');
+            timerDisplay.classList.remove('expired');
+            
+            showSuccessMessage('✅ A new 8-character code has been sent to your email');
+            
+            // Clear OTP inputs
+            clearOTPInputs();
+
+            resendLink.disabled = false;
+            resendLink.textContent = "Didn't receive? Resend";
+            isResending = false;
+
+        } catch (err) {
+            console.error('Resend exception:', err);
+            showError('Failed to resend code. Please try again.');
+            resendLink.disabled = false;
+            resendLink.textContent = "Didn't receive? Resend";
+            isResending = false;
+        }
+    }
+
+    // ============================================================
+    // TIMER
+    // ============================================================
+    function startTimer() {
+        timeLeft = 3600;
+        updateTimerDisplay();
+        
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timerDisplay.classList.add('expired');
+                timerCountdown.textContent = 'Expired';
+                resendBtn.classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerCountdown.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // ============================================================
+    // CLIPBOARD DETECTION - STRICT 8-CHARACTER CHECK
+    // ============================================================
+    async function checkClipboard() {
+        try {
+            if (!navigator.clipboard || !navigator.clipboard.readText) {
+                return;
+            }
+
+            const permission = await navigator.permissions.query({ name: 'clipboard-read' });
+            if (permission.state === 'denied') {
+                return;
+            }
+
+            const text = await navigator.clipboard.readText();
+            if (!text) return;
+
+            // STRICT: Look for exactly 8 alphanumeric characters
+            // Must match a word boundary, exactly 8 chars, no extra chars around it
+            const match = text.match(/\b([A-Za-z0-9]{8})\b/);
+            if (!match) {
+                console.log('Clipboard: No valid 8-character code found');
+                return;
+            }
+
+            const detectedOTP = match[1];
+            
+            // Double-check: ensure it's exactly 8 characters
+            if (detectedOTP.length !== 8) {
+                console.log('Clipboard: Found', detectedOTP.length, 'characters, expected 8');
+                return;
+            }
+            
+            console.log('Clipboard: Valid 8-character code detected:', detectedOTP);
+            
+            // Auto-fill the OTP
+            setOTP(detectedOTP);
+
+            // Show a subtle success message
+            showSuccessMessage('📋 Code detected from clipboard! Verifying...');
+
+            // Wait a moment then auto-verify
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Auto-verify
+            await verifyOTP();
+
+        } catch (err) {
+            console.log('Clipboard detection skipped:', err.message);
+        }
+    }
+
+    // ============================================================
+    // SUCCESS MESSAGE (for resend and clipboard)
+    // ============================================================
+    function showSuccessMessage(text) {
+        const existing = document.querySelector('.message.success');
+        if (existing) existing.remove();
+        
+        const msg = document.createElement('div');
+        msg.className = 'message success';
+        msg.innerHTML = `<i class="fas fa-check-circle"></i><span>${text}</span>`;
+        msg.style.marginBottom = '16px';
+        
+        const container = document.querySelector('.form-group');
+        container.parentNode.insertBefore(msg, container);
+        
+        setTimeout(() => {
+            msg.style.display = 'none';
+            setTimeout(() => msg.remove(), 500);
+        }, 3000);
+    }
+
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            // Only allow alphanumeric characters and limit to 1
+            const value = e.target.value;
+            const filtered = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            
+            // Only keep first character
+            e.target.value = filtered.charAt(0);
+            e.target.classList.toggle('filled', !!e.target.value);
+            
+            // If user is manually typing, clear the auto-filled flag
+            if (isAutoFilled) {
+                isAutoFilled = false;
+            }
+            
+            // Auto-advance to next input only if we have a character
+            if (e.target.value && index < otpInputs.length - 1) {
+                otpInputs[index + 1].focus();
+            }
+            
+            hideError();
+        });
+
+        input.addEventListener('keydown', (e) => {
+            // Backspace to previous input
+            if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                otpInputs[index - 1].focus();
+            }
+            
+            // Enter to verify
+            if (e.key === 'Enter') {
+                verifyOTP();
+            }
+        });
+
+        input.addEventListener('focus', () => {
+            input.select();
+        });
+
+        // Paste support - with strict validation
+        input.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // Clean: only keep alphanumeric characters
+            const clean = pasted.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            
+            // Only paste if we have valid characters
+            if (clean.length === 0) {
+                showError('No valid characters found in clipboard');
+                return;
+            }
+            
+            // Take up to 8 characters
+            const chars = clean.slice(0, 8);
+            
+            // Fill the inputs
+            const charArray = chars.split('');
+            otpInputs.forEach((inputEl, idx) => {
+                if (idx < charArray.length) {
+                    inputEl.value = charArray[idx];
+                    inputEl.classList.toggle('filled', !!charArray[idx]);
+                } else {
+                    inputEl.value = '';
+                    inputEl.classList.remove('filled');
+                }
+            });
+            
+            isAutoFilled = true;
+            
+            // Focus the next empty input or verify if all filled
+            if (chars.length === 8) {
+                setTimeout(verifyOTP, 300);
+            } else if (chars.length < 8) {
+                focusNextEmpty();
+            }
+        });
+    });
+
+    verifyBtn.addEventListener('click', verifyOTP);
+    resendBtn.addEventListener('click', resendCode);
+    resendLink.addEventListener('click', resendCode);
+
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+    async function init() {
+        await getUserEmail();
+        startTimer();
+
+        // Check clipboard after a delay
+        setTimeout(() => {
+            checkClipboard();
+        }, 500);
+
+        // Focus first input
+        setTimeout(() => {
+            if (!otpInputs[0].value) {
+                otpInputs[0].focus();
+            }
+        }, 1000);
+
+        console.log('🔐 8-Character OTP Verification page ready');
+    }
+
+    init();
+</script>
+
+</body>
+</html>
