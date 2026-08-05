@@ -57,35 +57,48 @@
     <script src="../js/supabase.js"></script>
     <script>
         // ============================================================
-        // OAUTH CALLBACK HANDLER
+        // OAUTH CALLBACK HANDLER - WORKS FOR BOTH LOCAL & GITHUB PAGES
         // ============================================================
 
-        // Determine the base path based on where this file is located
-        const basePath = window.location.origin + '/www/html/';
+        // Determine the base path for redirects
+        function getBasePath() {
+            const origin = window.location.origin;
+            const path = window.location.pathname;
+            
+            // If on GitHub Pages, get the base path (everything before /html/auth-callback.html)
+            if (origin.includes('github.io')) {
+                const basePath = path.substring(0, path.lastIndexOf('/html/'));
+                return origin + basePath;
+            }
+            
+            // Local development
+            return origin + '/www';
+        }
+
+        const basePath = getBasePath();
 
         async function handleCallback() {
             try {
                 console.log("🔄 Processing OAuth callback...");
+                console.log("📁 Base path:", basePath);
 
                 // Get the current session
                 const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
 
                 if (sessionError) {
                     console.error("Session error:", sessionError);
-                    window.location.href = '/www/index.html';
+                    window.location.href = basePath + '/index.html';
                     return;
                 }
 
                 if (!session) {
                     console.log("No session found, checking URL for tokens...");
 
-                    // Check URL for tokens
                     const urlParams = new URLSearchParams(window.location.search);
                     const accessToken = urlParams.get('access_token');
                     const refreshToken = urlParams.get('refresh_token');
 
                     if (accessToken) {
-                        // Set the session
                         const { error: setError } = await window.supabase.auth.setSession({
                             access_token: accessToken,
                             refresh_token: refreshToken || ''
@@ -93,28 +106,26 @@
 
                         if (setError) {
                             console.error("Error setting session:", setError);
-                            window.location.href = '/www/index.html';
+                            window.location.href = basePath + '/index.html';
                             return;
                         }
                     } else {
                         console.log("No tokens found in URL");
-                        window.location.href = '/www/index.html';
+                        window.location.href = basePath + '/index.html';
                         return;
                     }
                 }
 
-                // Get user profile after successful auth
                 const { data: { user }, error: userError } = await window.supabase.auth.getUser();
 
                 if (userError || !user) {
                     console.error("User error:", userError);
-                    window.location.href = '/www/index.html';
+                    window.location.href = basePath + '/index.html';
                     return;
                 }
 
                 console.log("✅ User authenticated:", user.email);
 
-                // Get user profile
                 const { data: profile, error: profileError } = await window.supabase
                     .from('profiles')
                     .select('role, is_approved')
@@ -124,7 +135,6 @@
                 if (profileError) {
                     console.warn("Profile fetch warning:", profileError);
                     
-                    // If no profile exists (Google user), create one
                     if (profileError.code === 'PGRST116') {
                         console.log("Creating profile for Google user...");
                         const { error: insertError } = await window.supabase
@@ -140,43 +150,39 @@
                         
                         if (insertError) {
                             console.error("Error creating profile:", insertError);
-                            window.location.href = '/www/index.html';
+                            window.location.href = basePath + '/index.html';
                             return;
                         }
                         
-                        // Redirect to home after creating profile
-                        window.location.href = basePath + 'home.html';
+                        window.location.href = basePath + '/html/chat-list.html';
                         return;
                     }
                     
-                    window.location.href = '/www/index.html';
+                    window.location.href = basePath + '/index.html';
                     return;
                 }
 
-                // Check if user is approved
                 if (!profile.is_approved) {
                     await window.supabase.auth.signOut();
                     alert('⏳ Your account is waiting for admin approval. You\'ll receive an email once approved!');
-                    window.location.href = '/www/index.html';
+                    window.location.href = basePath + '/index.html';
                     return;
                 }
 
-                // Redirect based on role - FIXED PATHS
                 if (profile.role === 'admin' || profile.role === 'small_admin') {
                     console.log("Redirecting to admin dashboard");
-                    window.location.href = basePath + 'admin.html';
+                    window.location.href = basePath + '/html/admin.html';
                 } else {
-                    console.log("Redirecting to home");
-                    window.location.href = basePath + 'home.html';
+                    console.log("Redirecting to chat list");
+                    window.location.href = basePath + '/html/chat-list.html';
                 }
 
             } catch (err) {
                 console.error("Callback error:", err);
-                window.location.href = '/www/index.html';
+                window.location.href = basePath + '/index.html';
             }
         }
 
-        // Run the handler
         handleCallback();
     </script>
 </body>

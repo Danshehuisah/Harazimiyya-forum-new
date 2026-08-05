@@ -67,8 +67,7 @@ function initializeAuth() {
     setupPasswordToggle(toggleRegPassword, regPassword);
     setupPasswordToggle(toggleRegConfirmPassword, regConfirmPassword);
 
-    // ================= GOOGLE OAUTH =================
-    // In auth.js - signInWithGoogle function
+   // ================= GOOGLE OAUTH =================
 async function signInWithGoogle() {
     try {
         const googleBtn = document.activeElement;
@@ -77,10 +76,25 @@ async function signInWithGoogle() {
             googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to Google...';
         }
 
-        // Use the correct path with /www/
-        const redirectTo = window.location.origin + '/www/html/auth-callback.html';
+        // Get the current origin (works for localhost AND GitHub Pages)
+        const origin = window.location.origin;
+        
+        // Determine the correct redirect path
+        let redirectTo;
+        
+        // Check if running on GitHub Pages
+        if (origin.includes('github.io')) {
+            // GitHub Pages: use the full path with repository name
+            // Example: https://yourusername.github.io/repository-name/www/html/auth-callback.html
+            const path = window.location.pathname;
+            const basePath = path.substring(0, path.lastIndexOf('/'));
+            redirectTo = origin + basePath + '/auth-callback.html';
+        } else {
+            // Local development
+            redirectTo = origin + '/www/html/auth-callback.html';
+        }
 
-        console.log("Redirecting to:", redirectTo);
+        console.log("🔄 Redirecting to:", redirectTo);
 
         const { data, error } = await window.supabase.auth.signInWithOAuth({
             provider: 'google',
