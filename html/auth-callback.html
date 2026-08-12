@@ -57,21 +57,26 @@
     <script src="../js/supabase.js"></script>
     <script>
         // ============================================================
-        // OAUTH CALLBACK HANDLER - WORKS FOR BOTH LOCAL & GITHUB PAGES
+        // OAUTH CALLBACK HANDLER - PKCE FLOW
+        // Supports: Vercel, GitHub Pages, Local development
         // ============================================================
 
-        // Determine the base path for redirects
         function getBasePath() {
             const origin = window.location.origin;
             const path = window.location.pathname;
-            
-            // If on GitHub Pages, get the base path (everything before /html/auth-callback.html)
+
+            // GitHub Pages: https://user.github.io/repo-name/html/auth-callback.html
             if (origin.includes('github.io')) {
-                const basePath = path.substring(0, path.lastIndexOf('/html/'));
-                return origin + basePath;
+                const repoRoot = path.substring(0, path.indexOf('/html/'));
+                return origin + repoRoot;
             }
-            
-            // Local development
+
+            // Vercel (or any non-local production host)
+            if (origin.includes('vercel.app')) {
+                return origin;
+            }
+
+            // Local development fallback
             return origin + '/www';
         }
 
@@ -82,48 +87,36 @@
                 console.log("🔄 Processing OAuth callback...");
                 console.log("📁 Base path:", basePath);
 
-                // Get the current session
-                const { data: { session }, error: sessionError } = await window.supabase.auth.getSession();
+                const url = new URL(window.location.href);
+                const code = url.searchParams.get('code');
 
-                if (sessionError) {
-                    console.error("Session error:", sessionError);
-                    window.location.href = basePath + '/index.html';
-                    return;
-                }
+                let session = null;
 
-                if (!session) {
-                    console.log("No session found, checking URL for tokens...");
+                if (code) {
+                    // PKCE flow: exchange authorization code for session
+                    console.log("🔑 Exchanging code for session...");
+                    const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
 
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const accessToken = urlParams.get('access_token');
-                    const refreshToken = urlParams.get('refresh_token');
-
-                    if (accessToken) {
-                        const { error: setError } = await window.supabase.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken || ''
-                        });
-
-                        if (setError) {
-                            console.error("Error setting session:", setError);
-                            window.location.href = basePath + '/index.html';
-                            return;
-                        }
-                    } else {
-                        console.log("No tokens found in URL");
+                    if (error) {
+                        console.error("Code exchange error:", error);
                         window.location.href = basePath + '/index.html';
                         return;
                     }
+
+                    session = data?.session;
+                } else {
+                    // Fallback: check if session already exists
+                    const { data: { session: existingSession } } = await window.supabase.auth.getSession();
+                    session = existingSession;
                 }
 
-                const { data: { user }, error: userError } = await window.supabase.auth.getUser();
-
-                if (userError || !user) {
-                    console.error("User error:", userError);
+                if (!session) {
+                    console.log("No session found");
                     window.location.href = basePath + '/index.html';
                     return;
                 }
 
+                const user = session.user;
                 console.log("✅ User authenticated:", user.email);
 
                 const { data: profile, error: profileError } = await window.supabase
@@ -134,7 +127,7 @@
 
                 if (profileError) {
                     console.warn("Profile fetch warning:", profileError);
-                    
+
                     if (profileError.code === 'PGRST116') {
                         console.log("Creating profile for Google user...");
                         const { error: insertError } = await window.supabase
@@ -147,17 +140,17 @@
                                 is_approved: true,
                                 created_at: new Date().toISOString()
                             }]);
-                        
+
                         if (insertError) {
                             console.error("Error creating profile:", insertError);
                             window.location.href = basePath + '/index.html';
                             return;
                         }
-                        
+
                         window.location.href = basePath + '/html/home.html';
                         return;
                     }
-                    
+
                     window.location.href = basePath + '/index.html';
                     return;
                 }
