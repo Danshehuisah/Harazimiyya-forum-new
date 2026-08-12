@@ -1,6 +1,7 @@
 // js/admin.js - Complete with Islamic Green Theme & Friendly Messages
 // UPDATED: Enhanced debugging for approve function
 // FIXED: Notification position - moved lower to avoid covering hamburger menu on mobile
+// ADDED: Collapsible sections with localStorage persistence
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("📊 Admin dashboard is getting ready for you...");
@@ -191,6 +192,9 @@ async function initializeAdmin() {
         await loadAllMembers();
         await loadRecentActivity();
         
+        // Restore collapsible section states
+        restoreSectionStates();
+        
         // Setup listeners
         setupAdminListeners();
         setupSearch();
@@ -198,6 +202,131 @@ async function initializeAdmin() {
     } catch (err) {
         console.error("Admin initialization error:", err);
         showIslamicNotification("Authentication error: " + err.message, "error");
+    }
+}
+
+// ============================================================
+// COLLAPSIBLE SECTIONS
+// ============================================================
+
+/**
+ * Toggle a section's visibility
+ * @param {string} sectionId - The ID of the section to toggle
+ */
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    
+    const body = section.querySelector('.section-body');
+    const icon = section.querySelector('.collapse-icon i');
+    
+    if (!body) return;
+    
+    // Toggle collapsed class on body
+    body.classList.toggle('collapsed');
+    
+    // Toggle icon rotation
+    if (icon) {
+        if (body.classList.contains('collapsed')) {
+            icon.className = 'fas fa-chevron-right';
+        } else {
+            icon.className = 'fas fa-chevron-down';
+        }
+    }
+    
+    // Save state to localStorage
+    const sectionStates = JSON.parse(localStorage.getItem('admin_section_states') || '{}');
+    sectionStates[sectionId] = body.classList.contains('collapsed');
+    localStorage.setItem('admin_section_states', JSON.stringify(sectionStates));
+}
+
+/**
+ * Restore saved section states
+ */
+function restoreSectionStates() {
+    const sectionStates = JSON.parse(localStorage.getItem('admin_section_states') || '{}');
+    
+    ['pendingSection', 'membersSection', 'activitySection'].forEach(sectionId => {
+        const section = document.getElementById(sectionId);
+        if (!section) return;
+        
+        const body = section.querySelector('.section-body');
+        const icon = section.querySelector('.collapse-icon i');
+        
+        if (!body) return;
+        
+        const isCollapsed = sectionStates[sectionId] === true;
+        
+        if (isCollapsed) {
+            body.classList.add('collapsed');
+            if (icon) {
+                icon.className = 'fas fa-chevron-right';
+            }
+        } else {
+            body.classList.remove('collapsed');
+            if (icon) {
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+    });
+}
+
+/**
+ * Toggle ALL sections (expand or collapse all)
+ */
+function toggleAllSections() {
+    const sections = ['pendingSection', 'membersSection', 'activitySection'];
+    const allCollapsed = sections.every(id => {
+        const section = document.getElementById(id);
+        if (!section) return true;
+        const body = section.querySelector('.section-body');
+        return body && body.classList.contains('collapsed');
+    });
+    
+    sections.forEach(id => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        const body = section.querySelector('.section-body');
+        if (!body) return;
+        
+        if (allCollapsed) {
+            // Expand all
+            body.classList.remove('collapsed');
+            const icon = section.querySelector('.collapse-icon i');
+            if (icon) icon.className = 'fas fa-chevron-down';
+        } else {
+            // Collapse all
+            body.classList.add('collapsed');
+            const icon = section.querySelector('.collapse-icon i');
+            if (icon) icon.className = 'fas fa-chevron-right';
+        }
+    });
+    
+    // Save states
+    const sectionStates = {};
+    sections.forEach(id => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        const body = section.querySelector('.section-body');
+        sectionStates[id] = body && body.classList.contains('collapsed');
+    });
+    localStorage.setItem('admin_section_states', JSON.stringify(sectionStates));
+    
+    // Also update the toggle all button text
+    const toggleBtn = document.querySelector('.section-controls .refresh-btn');
+    if (toggleBtn) {
+        const isAnyCollapsed = sections.some(id => {
+            const section = document.getElementById(id);
+            if (!section) return false;
+            const body = section.querySelector('.section-body');
+            return body && body.classList.contains('collapsed');
+        });
+        
+        if (isAnyCollapsed) {
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-circle-down"></i> Expand All';
+        } else {
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-circle-up"></i> Collapse All';
+        }
     }
 }
 
