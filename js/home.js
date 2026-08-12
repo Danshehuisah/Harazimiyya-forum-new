@@ -974,7 +974,7 @@ function setupClickableBoxes() {
     
     if (messageBox) {
         messageBox.addEventListener('click', () => {
-            window.location.href = 'chat.html';
+            window.location.href = 'chat-list.html';
         });
     }
 }
@@ -1096,3 +1096,5 @@ if (!document.getElementById('homeAnimationStyles')) {
     `;
     document.head.appendChild(style);
 }
+
+messageBox

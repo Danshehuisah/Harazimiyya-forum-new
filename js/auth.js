@@ -67,47 +67,74 @@ function initializeAuth() {
     setupPasswordToggle(toggleRegPassword, regPassword);
     setupPasswordToggle(toggleRegConfirmPassword, regConfirmPassword);
 
-   // ================= GOOGLE OAUTH =================
+ // ================= GOOGLE OAUTH =================
 async function signInWithGoogle() {
     try {
         const googleBtn = document.activeElement;
         if (googleBtn) {
             googleBtn.disabled = true;
-            googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to Google...';
+            googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting...';
         }
 
-        // Get the current origin (works for localhost AND GitHub Pages)
+        // Detect environment
+        const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+        const hostname = window.location.hostname;
         const origin = window.location.origin;
-        
-        // Determine the correct redirect path
+
         let redirectTo;
-        
-        // Check if running on GitHub Pages
-        if (origin.includes('github.io')) {
-            // GitHub Pages: use the full path with repository name
-            // Example: https://yourusername.github.io/repository-name/www/html/auth-callback.html
+
+        if (isCapacitor) {
+            // Native app deep link
+            redirectTo = 'com.harazimiyya.app://auth/callback';
+        } else if (hostname.includes('vercel.app')) {
+            // Vercel production
+            redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
+        } else if (hostname.includes('github.io')) {
+            // GitHub Pages
             const path = window.location.pathname;
             const basePath = path.substring(0, path.lastIndexOf('/'));
             redirectTo = origin + basePath + '/auth-callback.html';
         } else {
             // Local development
-            redirectTo = origin + '/www/html/auth-callback.html';
+            redirectTo = origin + '/html/auth-callback.html';
         }
 
-        console.log("🔄 Redirecting to:", redirectTo);
+        console.log("🔄 OAuth redirectTo:", redirectTo);
 
-        const { data, error } = await window.supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: redirectTo,
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
+        if (isCapacitor) {
+            // Native: use Capacitor Browser plugin (in-app browser)
+            const { data, error } = await window.supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectTo,
+                    skipBrowserRedirect: true, // Critical: prevents full page redirect
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    }
                 }
-            }
-        });
+            });
 
-        if (error) throw error;
+            if (error) throw error;
+            if (data?.url) {
+                const { Browser } = await import('@capacitor/browser');
+                await Browser.open({ url: data.url });
+            }
+        } else {
+            // Web: normal redirect flow
+            const { error } = await window.supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: redirectTo,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'consent',
+                    }
+                }
+            });
+
+            if (error) throw error;
+        }
 
     } catch (err) {
         console.error("Google sign in error:", err);
@@ -124,7 +151,8 @@ async function signInWithGoogle() {
     }
 }
 
-    // Setup Google buttons
+
+// Setup Google buttons
     if (googleLoginBtn) {
         googleLoginBtn.addEventListener('click', signInWithGoogle);
     }
@@ -162,6 +190,86 @@ async function signInWithGoogle() {
             authCard.classList.remove('hidden');
         });
     }
+
+
+    // ================= CAPACITOR DEEP LINK HANDLER =================
+async function initializeDeepLinkHandler() {
+    // Only run inside Capacitor native app
+    if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) {
+        return;
+    }
+
+    try {
+        const { App } = await import('@capacitor/app');
+        const { Browser } = await import('@capacitor/browser');
+
+        App.addListener('appUrlOpen', async ({ url }) => {
+            console.log('📲 Deep link received:', url);
+
+            // Only handle our auth callback scheme
+            if (url.startsWith('com.harazimiyya.app://auth/callback')) {
+                // Close the in-app browser
+                try {
+                    await Browser.close();
+                } catch (e) {
+                    // Browser may already be closed
+                }
+
+                // Extract authorization code from URL
+                const urlObj = new URL(url);
+                const code = urlObj.searchParams.get('code');
+
+                if (!code) {
+                    showCustomAlert('Authentication failed. No code received.', 'error');
+                    return;
+                }
+
+                // Exchange code for Supabase session (PKCE)
+                const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
+
+                if (error) {
+                    console.error('Code exchange error:', error);
+                    showCustomAlert('Failed to complete sign in. Please try again.', 'error');
+                    return;
+                }
+
+                if (data?.session) {
+                    console.log('✅ Session established via deep link');
+                    
+                    // Check approval and redirect exactly like your login flow
+                    const { data: profile, error: profileError } = await window.supabase
+                        .from('profiles')
+                        .select('role, is_approved')
+                        .eq('id', data.session.user.id)
+                        .single();
+
+                    if (profileError || !profile) {
+                        showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
+                        return;
+                    }
+
+                    if (!profile.is_approved) {
+                        await window.supabase.auth.signOut();
+                        showCustomAlert('Your account is waiting for admin approval.', 'warning');
+                        return;
+                    }
+
+                    if (profile.role === 'admin' || profile.role === 'small_admin') {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = 'home.html';
+                    }
+                }
+            }
+        });
+
+        console.log('✅ Deep link handler initialized');
+    } catch (err) {
+        console.error('Deep link init error:', err);
+    }
+}
+
+
 
     // ================= EMAIL VALIDATION =================
     function isValidGmail(email) {
