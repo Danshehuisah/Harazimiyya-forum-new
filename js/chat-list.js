@@ -373,7 +373,7 @@ function renderChats() {
                         <div class="avatar-fallback" style="background: rgba(255,215,0,0.15); color: #ffd700;">
                             👑
                         </div>
-                        <span class="community-crown">👑</span>
+                        <!--<span class="community-crown">👑</span>-->
                     ` : `
                         ${avatarUrl ? 
                             `<img src="${avatarUrl}" onerror="this.classList.add('fallback'); this.innerHTML='<i class=\\'fas fa-user\\'></i>'; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\'/%3E'">` :

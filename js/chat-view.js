@@ -1190,7 +1190,7 @@ function setupMobileKeyboardFix() {
                     }
                     const inputArea = document.querySelector('.chat-input-area');
                     if (inputArea) {
-                        inputArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        inputArea.scrollIntoView({ behavior: 'smooth', block: 'end' });
                     }
                 }, 200);
             }
