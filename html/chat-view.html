@@ -19,8 +19,25 @@
         frame-src 'self' https://*.youtube.com https://*.vimeo.com;
         worker-src 'self' blob:;
     ">
+
+    <style>
+    /* Apply dark theme immediately */
+    /* body {
+        background: #0a1f1a;
+        color: #f1f5f4;
+    } */
+</style>
 </head>
-<body>
+<!-- <body> -->
+    <body  data-theme="dark">
+    <script>
+        // Apply theme immediately before any rendering
+        (function() {
+            const theme = localStorage.getItem('chatTheme') || 'dark';
+            document.body.setAttribute('data-theme', theme);
+        })();
+    </script>
+
 
 <!-- ===== SIDEBAR ===== -->
 <div class="deepseek-sidebar" id="sidebar">

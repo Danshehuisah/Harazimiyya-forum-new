@@ -116,6 +116,7 @@ async function initializeChatView() {
     setupThemeToggle();
     createJumpToBottomButton();
     setupPresenceTracking();
+    setupMobileKeyboardFix(); // ← Added here
 }
 
 // ============================================================
@@ -1151,37 +1152,44 @@ window.scrollToMessage = function(messageId) {
 
 console.log("✅ Chat View loaded successfully");
 
-
 // ============================================================
 // FIX: Mobile Keyboard Scroll
 // ============================================================
 
-const messageInput = document.getElementById('messageInput');
-
-messageInput.addEventListener('focus', function() {
-    // Scroll input into view when focused (for mobile)
-    setTimeout(() => {
-        this.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
-});
-
-// Also handle the case when keyboard opens/closes
-if ('visualViewport' in window) {
-    let lastHeight = window.visualViewport.height;
+function setupMobileKeyboardFix() {
+    const input = document.getElementById('messageInput');
+    const messages = document.getElementById('messages');
     
-    window.visualViewport.addEventListener('resize', () => {
-        const currentHeight = window.visualViewport.height;
+    if (!input) return;
+    
+    // When input is focused, ensure it scrolls into view
+    input.addEventListener('focus', function() {
+        setTimeout(() => {
+            this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    });
+    
+    // Handle visual viewport changes (keyboard open/close)
+    if ('visualViewport' in window) {
+        let lastHeight = window.visualViewport.height;
         
-        if (currentHeight < lastHeight) {
-            // Keyboard opened - scroll to input
-            const input = document.querySelector('.chat-input-area');
-            if (input) {
+        window.visualViewport.addEventListener('resize', () => {
+            const currentHeight = window.visualViewport.height;
+            
+            if (currentHeight < lastHeight) {
+                // Keyboard opened - scroll to bottom and input
                 setTimeout(() => {
-                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (messages) {
+                        messages.scrollTop = messages.scrollHeight;
+                    }
+                    const inputArea = document.querySelector('.chat-input-area');
+                    if (inputArea) {
+                        inputArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                 }, 200);
             }
-        }
-        
-        lastHeight = currentHeight;
-    });
+            
+            lastHeight = currentHeight;
+        });
+    }
 }

@@ -101,6 +101,7 @@
 }
 
 body {
+    /* background: var(--bg-dark); */
     background: var(--bg-dark);
     color: var(--text-light);
     height: 100vh;

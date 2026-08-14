@@ -237,7 +237,8 @@ function renderMessages(messages) {
         const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         let senderName = msg.sender ? (msg.sender.full_name || msg.sender.email || 'Unknown') : 'Unknown';
         const isAdminSender = msg.sender && msg.sender.role === 'admin';
-        const crown = isAdminSender ? ' 👑' : '';
+        // const crown = isAdminSender ? ' 👑' : '';
+        const crown = isAdminSender ? ' ' : '';
         
         if (isSent) {
             html += `
