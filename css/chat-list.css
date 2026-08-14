@@ -985,3 +985,27 @@ body {
         padding: 20px;
     }
 }
+
+
+/* ================= LOADING INDICATOR ================= */
+.loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    min-height: 32px;
+}
+
+.loading-indicator i {
+    font-size: 12px;
+    color: var(--primary-color);
+}
+
+.loading-indicator.hidden {
+    display: none !important;
+}
