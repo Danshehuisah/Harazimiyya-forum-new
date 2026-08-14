@@ -16,10 +16,6 @@ let isSearching = false;
 let selectedChatId = null;
 let selectedChatType = null;
 
-// Cache variables
-const CACHE_KEY = 'chat_list_cache';
-let isFirstLoad = true;
-
 // DOM Elements
 const chatListEl = document.getElementById('chatList');
 const searchInput = document.getElementById('searchInput');
@@ -32,8 +28,6 @@ const overlay = document.getElementById('overlay');
 const openSidebar = document.getElementById('openSidebar');
 const closeSidebar = document.getElementById('closeSidebar');
 const logoutBtn = document.getElementById('logoutBtn');
-const loadingIndicator = document.getElementById('loadingIndicator');
-const loadingText = document.getElementById('loadingText');
 
 // Modal elements
 const groupModal = document.getElementById('groupModal');
@@ -49,47 +43,6 @@ const deleteModal = document.getElementById('deleteModal');
 const deleteForMe = document.getElementById('deleteForMe');
 const deleteForAll = document.getElementById('deleteForAll');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-
-// ============================================================
-// CACHE FUNCTIONS
-// ============================================================
-
-function saveToCache(chats) {
-    try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            data: chats,
-            timestamp: Date.now()
-        }));
-    } catch (e) {
-        console.warn('Cache save failed:', e);
-    }
-}
-
-function loadFromCache() {
-    try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (!cached) return null;
-        
-        const parsed = JSON.parse(cached);
-        return parsed.data || null;
-    } catch (e) {
-        console.warn('Cache load failed:', e);
-        return null;
-    }
-}
-
-function showLoadingIndicator(text = 'Loading...') {
-    if (loadingIndicator) {
-        loadingIndicator.style.display = 'flex';
-        if (loadingText) loadingText.textContent = text;
-    }
-}
-
-function hideLoadingIndicator() {
-    if (loadingIndicator) {
-        loadingIndicator.style.display = 'none';
-    }
-}
 
 // ============================================================
 // INITIALIZATION
@@ -318,59 +271,32 @@ function isUserOnline(userId) {
 }
 
 // ============================================================
-// LOAD CHATS WITH CACHE
+// LOAD CHATS
 // ============================================================
 
 async function loadChats() {
-    // Step 1: Show loading indicator
-    showLoadingIndicator('Loading...');
-    
-    // Step 2: Load cached data immediately
-    const cachedData = loadFromCache();
-    if (cachedData && cachedData.length > 0) {
-        allChats = cachedData;
-        renderChats();
-        isFirstLoad = false;
-        // Keep loading indicator visible while refreshing
-    } else {
-        // No cache - show spinner in chat list
-        chatListEl.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading chats...</div>';
-    }
-    
-    // Step 3: Fetch fresh data in background
     try {
+        chatListEl.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading chats...</div>';
+        
         const { data, error } = await window.supabase
             .rpc('get_user_chats', { p_user_id: currentUser.id });
         
         if (error) throw error;
         
-        const newData = data || [];
+        allChats = data || [];
+        console.log('✅ Chats loaded:', allChats.length);
         
-        // Update chats
-        allChats = newData;
         renderChats();
         
-        // Hide loading indicator completely
-        hideLoadingIndicator();
-        
-        // Save to cache
-        saveToCache(newData);
-        isFirstLoad = false;
-        
     } catch (err) {
-        console.error('Error refreshing chats:', err);
-        
-        // If we have cached data, keep showing it
-        if (!cachedData || cachedData.length === 0) {
-            chatListEl.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <h3>Error loading chats</h3>
-                    <p>Please refresh the page</p>
-                </div>
-            `;
-        }
-        hideLoadingIndicator();
+        console.error('Error loading chats:', err);
+        chatListEl.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3>Error loading chats</h3>
+                <p>Please refresh the page</p>
+            </div>
+        `;
     }
 }
 
@@ -533,6 +459,10 @@ function openChat(chatId, chatType, chatName) {
 }
 
 // ============================================================
+// SEARCH
+// ============================================================
+
+// ============================================================
 // SEARCH - SEARCHES BOTH MEMBERS AND GROUPS
 // ============================================================
 
@@ -635,7 +565,6 @@ function performSearch(query) {
         });
     });
 }
-
 // ============================================================
 // TABS
 // ============================================================
