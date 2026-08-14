@@ -1065,7 +1065,12 @@ function showAudioPreview(audioUrl) {
 // ============================================================
 
 function initTheme() {
-    document.body.setAttribute('data-theme', currentTheme);
+    // document.body.setAttribute('data-theme', currentTheme);
+     const savedTheme = localStorage.getItem('chatTheme') || 'dark';
+    if (document.body.getAttribute('data-theme') !== savedTheme) {
+        document.body.setAttribute('data-theme', savedTheme);
+    }
+    currentTheme = savedTheme;
 }
 
 function setupThemeToggle() {

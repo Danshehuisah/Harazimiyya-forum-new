@@ -30,13 +30,25 @@
 </head>
 <!-- <body> -->
     <body  data-theme="dark">
+    <!-- ===== IMMEDIATE THEME APPLICATION ===== -->
     <script>
-        // Apply theme immediately before any rendering
         (function() {
+            // Set theme immediately before any content renders
             const theme = localStorage.getItem('chatTheme') || 'dark';
             document.body.setAttribute('data-theme', theme);
+            
+            // Also set background color immediately
+            const bgColors = {
+                'dark': '#0a1f1a',
+                'light': '#e5ded5',
+                'sepia': '#f4ecd8',
+                'forest': '#e8f0e8'
+            };
+            document.body.style.backgroundColor = bgColors[theme] || '#0a1f1a';
         })();
     </script>
+    
+    <!-- Rest of your page -->
 
 
 <!-- ===== SIDEBAR ===== -->
