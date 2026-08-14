@@ -925,3 +925,87 @@ window.scrollToMessage = function(messageId) {
 };
 
 console.log("✅ Community Chat loaded successfully");
+
+function setupMessageEventListeners() {
+    document.querySelectorAll('.message').forEach(msg => {
+        // Desktop right-click
+        msg.oncontextmenu = (e) => {
+            e.preventDefault();
+            // Show context menu
+        };
+        
+        // Mobile touch events
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let isSwiping = false;
+        
+        msg.addEventListener('touchstart', (e) => {
+            const touch = e.changedTouches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchStartTime = Date.now();
+            isSwiping = false;
+        }, { passive: true });
+        
+        msg.addEventListener('touchmove', (e) => {
+            const touch = e.changedTouches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+            
+            // Only detect horizontal swipes (ignore vertical scrolling)
+            if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+                isSwiping = true;
+                // Show swipe indicator
+                handleSwipeToReply(msg, deltaX);
+            }
+        }, { passive: true });
+        
+        msg.addEventListener('touchend', (e) => {
+            const deltaTime = Date.now() - touchStartTime;
+            
+            // If it was a long-press (500ms+ and not a swipe)
+            if (!isSwiping && deltaTime > 500) {
+                e.preventDefault();
+                showContextMenu(/* ... */);
+            }
+            
+            // Reset swipe
+            if (isSwiping) {
+                resetSwipeState(msg);
+            }
+        }, { passive: true });
+    });
+}
+
+function handleSwipeToReply(msg, deltaX) {
+    // Check if it's a received message (not sent by current user)
+    if (msg.classList.contains('received')) {
+        // Show swipe indicator
+        const swipeAmount = Math.min(Math.abs(deltaX), 80);
+        msg.style.transform = `translateX(${deltaX > 0 ? Math.min(deltaX, 80) : 0}px)`;
+        msg.style.transition = 'none';
+        
+        // If swiped far enough, trigger reply
+        if (swipeAmount > 60) {
+            const messageId = msg.dataset.messageId;
+            const senderName = msg.querySelector('small')?.textContent || 'User';
+            const messageContent = msg.querySelector('.message-content p')?.textContent || '';
+            let messageType = 'text';
+            if (msg.querySelector('img')) messageType = 'image';
+            else if (msg.querySelector('video')) messageType = 'video';
+            else if (msg.querySelector('audio')) messageType = 'audio';
+            
+            window.handleReplyAction(messageId, senderName, messageContent, messageType);
+            resetSwipeState(msg);
+        }
+    }
+}
+
+function resetSwipeState(msg) {
+    msg.style.transition = 'transform 0.3s ease';
+    msg.style.transform = 'translateX(0)';
+    setTimeout(() => {
+        msg.style.transition = '';
+    }, 300);
+}

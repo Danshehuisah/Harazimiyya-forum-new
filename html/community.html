@@ -20,8 +20,23 @@
         worker-src 'self' blob:;
     ">
 </head>
-<body>
-
+<body data-theme="dark">
+<script>
+        (function() {
+            // Set theme immediately before any content renders
+            const theme = localStorage.getItem('chatTheme') || 'dark';
+            document.body.setAttribute('data-theme', theme);
+            
+            // Also set background color immediately
+            const bgColors = {
+                'dark': '#0a1f1a',
+                'light': '#e5ded5',
+                'sepia': '#f4ecd8',
+                'forest': '#e8f0e8'
+            };
+            document.body.style.backgroundColor = bgColors[theme] || '#0a1f1a';
+        })();
+    </script>
 <!-- ===== SIDEBAR ===== -->
 <div class="deepseek-sidebar" id="sidebar">
     <div class="sidebar-header">

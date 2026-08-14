@@ -1050,3 +1050,12 @@ body {
 .hidden {
     display: none !important;
 }
+
+.message {
+    transition: transform 0.3s ease;
+    touch-action: pan-y; /* Allow vertical scrolling, capture horizontal */
+}
+
+.message.swiping {
+    transition: none;
+}
