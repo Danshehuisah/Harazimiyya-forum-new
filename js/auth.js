@@ -85,7 +85,7 @@ async function signInWithGoogle() {
 
         if (isCapacitor) {
             // Native app deep link
-            redirectTo = 'com.harazimiyya.app://auth/callback';
+            redirectTo = 'com.harazimiyya.forum://auth/callback';
         } else if (hostname.includes('vercel.app')) {
             // Vercel production
             redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
@@ -117,7 +117,7 @@ async function signInWithGoogle() {
 
             if (error) throw error;
             if (data?.url) {
-                const { Browser } = await import('@capacitor/browser');
+                const Browser = Capacitor.Plugins.Browser;
                 await Browser.open({ url: data.url });
             }
         } else {
@@ -200,14 +200,14 @@ async function initializeDeepLinkHandler() {
     }
 
     try {
-        const { App } = await import('@capacitor/app');
-        const { Browser } = await import('@capacitor/browser');
+        const App = Capacitor.Plugins.App;
+        const Browser = Capacitor.Plugins.Browser;
 
         App.addListener('appUrlOpen', async ({ url }) => {
             console.log('📲 Deep link received:', url);
 
             // Only handle our auth callback scheme
-            if (url.startsWith('com.harazimiyya.app://auth/callback')) {
+            if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
                 // Close the in-app browser
                 try {
                     await Browser.close();
