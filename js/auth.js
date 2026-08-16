@@ -1,5 +1,5 @@
 // js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION & GOOGLE OAUTH
-// UPDATED: Added Google OAuth login/signup
+// UPDATED: Added Google OAuth login/signup + Fixed deep link handling
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
@@ -17,6 +17,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     waitForSupabase();
 });
+
+// ================= CAPACITOR PLUGIN HELPERS =================
+// Safely get a Capacitor plugin to avoid "undefined" errors
+function getCapacitorPlugin(pluginName) {
+    try {
+        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.[pluginName]) {
+            return window.Capacitor.Plugins[pluginName];
+        }
+    } catch (e) {
+        console.warn(`Capacitor plugin ${pluginName} not available:`, e);
+    }
+    return null;
+}
+
+function isCapacitorNative() {
+    try {
+        return typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.() === true;
+    } catch (e) {
+        return false;
+    }
+}
 
 function initializeAuth() {
     // Get DOM elements
@@ -67,92 +88,94 @@ function initializeAuth() {
     setupPasswordToggle(toggleRegPassword, regPassword);
     setupPasswordToggle(toggleRegConfirmPassword, regConfirmPassword);
 
- // ================= GOOGLE OAUTH =================
-async function signInWithGoogle() {
-    try {
-        const googleBtn = document.activeElement;
-        if (googleBtn) {
-            googleBtn.disabled = true;
-            googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting...';
-        }
-
-        // Detect environment
-        const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
-        const hostname = window.location.hostname;
-        const origin = window.location.origin;
-
-        let redirectTo;
-
-        if (isCapacitor) {
-            // Native app deep link
-            redirectTo = 'com.harazimiyya.forum://auth/callback';
-        } else if (hostname.includes('vercel.app')) {
-            // Vercel production
-            redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
-        } else if (hostname.includes('github.io')) {
-            // GitHub Pages
-            const path = window.location.pathname;
-            const basePath = path.substring(0, path.lastIndexOf('/'));
-            redirectTo = origin + basePath + '/auth-callback.html';
-        } else {
-            // Local development
-            redirectTo = origin + '/html/auth-callback.html';
-        }
-
-        console.log("🔄 OAuth redirectTo:", redirectTo);
-
-        if (isCapacitor) {
-            // Native: use Capacitor Browser plugin (in-app browser)
-            const { data, error } = await window.supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectTo,
-                    skipBrowserRedirect: true, // Critical: prevents full page redirect
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    }
-                }
-            });
-
-            if (error) throw error;
-            if (data?.url) {
-                const Browser = Capacitor.Plugins.Browser;
-                await Browser.open({ url: data.url });
+    // ================= GOOGLE OAUTH =================
+    async function signInWithGoogle() {
+        try {
+            const googleBtn = document.activeElement;
+            if (googleBtn) {
+                googleBtn.disabled = true;
+                googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting...';
             }
-        } else {
-            // Web: normal redirect flow
-            const { error } = await window.supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectTo,
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
+
+            const hostname = window.location.hostname;
+            const origin = window.location.origin;
+            const isNative = isCapacitorNative();
+
+            let redirectTo;
+
+            if (isNative) {
+                // Native app deep link
+                redirectTo = 'com.harazimiyya.forum://auth/callback';
+            } else if (hostname.includes('vercel.app')) {
+                // Vercel production
+                redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
+            } else if (hostname.includes('github.io')) {
+                // GitHub Pages
+                const path = window.location.pathname;
+                const basePath = path.substring(0, path.lastIndexOf('/'));
+                redirectTo = origin + basePath + '/auth-callback.html';
+            } else {
+                // Local development
+                redirectTo = origin + '/html/auth-callback.html';
+            }
+
+            console.log("🔄 OAuth redirectTo:", redirectTo);
+
+            if (isNative) {
+                // Native: use Capacitor Browser plugin (in-app browser)
+                const { data, error } = await window.supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: redirectTo,
+                        skipBrowserRedirect: true, // Critical: prevents full page redirect
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent',
+                        }
                     }
+                });
+
+                if (error) throw error;
+                
+                if (data?.url) {
+                    const Browser = getCapacitorPlugin('Browser');
+                    if (!Browser || typeof Browser.open !== 'function') {
+                        throw new Error('Capacitor Browser plugin is not available. Please ensure @capacitor/browser is installed and synced.');
+                    }
+                    await Browser.open({ url: data.url });
                 }
-            });
+            } else {
+                // Web: normal redirect flow
+                const { error } = await window.supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: redirectTo,
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent',
+                        }
+                    }
+                });
 
-            if (error) throw error;
-        }
+                if (error) throw error;
+            }
 
-    } catch (err) {
-        console.error("Google sign in error:", err);
-        showCustomAlert('Could not sign in with Google. Please try again.', 'error');
-        
-        const googleBtn = document.querySelector('#googleLoginBtn, #googleRegisterBtn');
-        if (googleBtn) {
-            googleBtn.disabled = false;
-            googleBtn.innerHTML = `
-                <img src="https://www.google.com/favicon.ico" alt="Google" class="google-icon">
-                Continue with Google
-            `;
+        } catch (err) {
+            console.error("Google sign in error:", err);
+            showCustomAlert('Could not sign in with Google. Please try again.', 'error');
+            
+            const googleBtn = document.querySelector('#googleLoginBtn, #googleRegisterBtn');
+            if (googleBtn) {
+                googleBtn.disabled = false;
+                googleBtn.innerHTML = `
+                    <img src="https://www.google.com/favicon.ico" alt="Google" class="google-icon">
+                    Continue with Google
+                `;
+            }
         }
     }
-}
 
-
-// Setup Google buttons
+    // Setup Google buttons
     if (googleLoginBtn) {
         googleLoginBtn.addEventListener('click', signInWithGoogle);
     }
@@ -191,85 +214,105 @@ async function signInWithGoogle() {
         });
     }
 
-
     // ================= CAPACITOR DEEP LINK HANDLER =================
-async function initializeDeepLinkHandler() {
-    // Only run inside Capacitor native app
-    if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) {
-        return;
-    }
+    async function initializeDeepLinkHandler() {
+        // Only run inside Capacitor native app
+        if (!isCapacitorNative()) {
+            console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
+            return;
+        }
 
-    try {
-        const App = Capacitor.Plugins.App;
-        const Browser = Capacitor.Plugins.Browser;
+        try {
+            const App = getCapacitorPlugin('App');
+            const Browser = getCapacitorPlugin('Browser');
 
-        App.addListener('appUrlOpen', async ({ url }) => {
-            console.log('📲 Deep link received:', url);
-
-            // Only handle our auth callback scheme
-            if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
-                // Close the in-app browser
-                try {
-                    await Browser.close();
-                } catch (e) {
-                    // Browser may already be closed
-                }
-
-                // Extract authorization code from URL
-                const urlObj = new URL(url);
-                const code = urlObj.searchParams.get('code');
-
-                if (!code) {
-                    showCustomAlert('Authentication failed. No code received.', 'error');
-                    return;
-                }
-
-                // Exchange code for Supabase session (PKCE)
-                const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                if (error) {
-                    console.error('Code exchange error:', error);
-                    showCustomAlert('Failed to complete sign in. Please try again.', 'error');
-                    return;
-                }
-
-                if (data?.session) {
-                    console.log('✅ Session established via deep link');
-                    
-                    // Check approval and redirect exactly like your login flow
-                    const { data: profile, error: profileError } = await window.supabase
-                        .from('profiles')
-                        .select('role, is_approved')
-                        .eq('id', data.session.user.id)
-                        .single();
-
-                    if (profileError || !profile) {
-                        showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
-                        return;
-                    }
-
-                    if (!profile.is_approved) {
-                        await window.supabase.auth.signOut();
-                        showCustomAlert('Your account is waiting for admin approval.', 'warning');
-                        return;
-                    }
-
-                    if (profile.role === 'admin' || profile.role === 'small_admin') {
-                        window.location.href = 'admin.html';
-                    } else {
-                        window.location.href = 'home.html';
-                    }
-                }
+            if (!App) {
+                console.error('Capacitor App plugin not available. Deep links will not work.');
+                return;
             }
-        });
+            if (!Browser) {
+                console.error('Capacitor Browser plugin not available.');
+            }
 
-        console.log('✅ Deep link handler initialized');
-    } catch (err) {
-        console.error('Deep link init error:', err);
+            // Remove any existing listener first (prevents duplicates on hot reload)
+            try {
+                await App.removeAllListeners();
+            } catch (e) {
+                // ignore if method doesn't exist
+            }
+
+            App.addListener('appUrlOpen', async ({ url }) => {
+                console.log('📲 Deep link received:', url);
+
+                // Only handle our auth callback scheme
+                if (url && url.startsWith('com.harazimiyya.forum://auth/callback')) {
+                    // Close the in-app browser
+                    if (Browser && typeof Browser.close === 'function') {
+                        try {
+                            await Browser.close();
+                        } catch (e) {
+                            // Browser may already be closed
+                        }
+                    }
+
+                    // Extract authorization code from URL
+                    let code = null;
+                    try {
+                        const urlObj = new URL(url);
+                        code = urlObj.searchParams.get('code');
+                    } catch (e) {
+                        console.error('Failed to parse deep link URL:', e);
+                    }
+
+                    if (!code) {
+                        showCustomAlert('Authentication failed. No authorization code received.', 'error');
+                        return;
+                    }
+
+                    // Exchange code for Supabase session (PKCE)
+                    const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
+
+                    if (error) {
+                        console.error('Code exchange error:', error);
+                        showCustomAlert('Failed to complete sign in. Please try again.', 'error');
+                        return;
+                    }
+
+                    if (data?.session) {
+                        console.log('✅ Session established via deep link');
+                        
+                        // Check approval and redirect exactly like your login flow
+                        const { data: profile, error: profileError } = await window.supabase
+                            .from('profiles')
+                            .select('role, is_approved')
+                            .eq('id', data.session.user.id)
+                            .single();
+
+                        if (profileError || !profile) {
+                            showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
+                            return;
+                        }
+
+                        if (!profile.is_approved) {
+                            await window.supabase.auth.signOut();
+                            showCustomAlert('Your account is waiting for admin approval.', 'warning');
+                            return;
+                        }
+
+                        if (profile.role === 'admin' || profile.role === 'small_admin') {
+                            window.location.href = 'html/admin.html';
+                        } else {
+                            window.location.href = 'html/home.html';
+                        }
+                    }
+                }
+            });
+
+            console.log('✅ Deep link handler initialized');
+        } catch (err) {
+            console.error('Deep link init error:', err);
+        }
     }
-}
-
-
 
     // ================= EMAIL VALIDATION =================
     function isValidGmail(email) {
@@ -608,6 +651,10 @@ async function initializeDeepLinkHandler() {
             }
         }
     });
+
+    // ================= INITIALIZE DEEP LINK HANDLER =================
+    // CRITICAL FIX: This was defined but never called in the original code!
+    initializeDeepLinkHandler();
 }
 
 // Add animation styles
