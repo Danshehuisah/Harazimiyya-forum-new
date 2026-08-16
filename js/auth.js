@@ -215,105 +215,157 @@ function initializeAuth() {
     }
 
     // ================= CAPACITOR DEEP LINK HANDLER =================
-    async function initializeDeepLinkHandler() {
-        // Only run inside Capacitor native app
-        if (!isCapacitorNative()) {
-            console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
+    // ================= CAPACITOR DEEP LINK HANDLER =================
+async function initializeDeepLinkHandler() {
+    if (!isCapacitorNative()) {
+        console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
+        return;
+    }
+
+    try {
+        const App = getCapacitorPlugin('App');
+        const Browser = getCapacitorPlugin('Browser');
+
+        if (!App) {
+            console.error('Capacitor App plugin not available.');
             return;
         }
 
-        try {
-            const App = getCapacitorPlugin('App');
-            const Browser = getCapacitorPlugin('Browser');
+        // Prevent duplicate listeners
+        try { await App.removeAllListeners(); } catch (e) {}
 
-            if (!App) {
-                console.error('Capacitor App plugin not available. Deep links will not work.');
+        App.addListener('appUrlOpen', async ({ url }) => {
+            console.log('📲 RAW deep link received:', url);
+
+            if (!url || !url.startsWith('com.harazimiyya.forum://auth/callback')) {
+                console.log('⏭️ Ignoring non-auth URL:', url);
                 return;
             }
-            if (!Browser) {
-                console.error('Capacitor Browser plugin not available.');
+
+            // Close browser
+            if (Browser && typeof Browser.close === 'function') {
+                try { await Browser.close(); } catch (e) {}
             }
 
-            // Remove any existing listener first (prevents duplicates on hot reload)
+            // Parse the URL carefully
+            let parsedUrl;
             try {
-                await App.removeAllListeners();
+                parsedUrl = new URL(url);
             } catch (e) {
-                // ignore if method doesn't exist
+                console.error('❌ Failed to parse URL:', e);
+                showCustomAlert('Invalid redirect URL received.', 'error');
+                return;
             }
 
-            App.addListener('appUrlOpen', async ({ url }) => {
-                console.log('📲 Deep link received:', url);
+            console.log('🔍 URL search (query):', parsedUrl.search);
+            console.log('🔍 URL hash (fragment):', parsedUrl.hash);
 
-                // Only handle our auth callback scheme
-                if (url && url.startsWith('com.harazimiyya.forum://auth/callback')) {
-                    // Close the in-app browser
-                    if (Browser && typeof Browser.close === 'function') {
-                        try {
-                            await Browser.close();
-                        } catch (e) {
-                            // Browser may already be closed
-                        }
-                    }
+            // Check for Supabase error responses first
+            const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
+            if (errorDesc) {
+                console.error('❌ Supabase returned error in URL:', errorDesc);
+                showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
+                return;
+            }
 
-                    // Extract authorization code from URL
-                    let code = null;
-                    try {
-                        const urlObj = new URL(url);
-                        code = urlObj.searchParams.get('code');
-                    } catch (e) {
-                        console.error('Failed to parse deep link URL:', e);
-                    }
+            // Try to get authorization code from query params (PKCE flow)
+            let code = parsedUrl.searchParams.get('code');
+            
+            // If no code in query, check hash fragment (some flows put it there)
+            if (!code && parsedUrl.hash) {
+                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                code = hashParams.get('code');
+                console.log('🔍 Checked hash for code:', code);
+            }
 
-                    if (!code) {
-                        showCustomAlert('Authentication failed. No authorization code received.', 'error');
-                        return;
-                    }
+            // If still no code, check for direct tokens in fragment (implicit flow fallback)
+            if (!code && parsedUrl.hash) {
+                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+                const expiresIn = hashParams.get('expires_in');
+                const tokenType = hashParams.get('token_type');
 
-                    // Exchange code for Supabase session (PKCE)
-                    const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
+                if (accessToken) {
+                    console.log('🔑 Found access_token in fragment, using implicit flow fallback');
+                    const { data, error } = await window.supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken || ''
+                    });
 
                     if (error) {
-                        console.error('Code exchange error:', error);
-                        showCustomAlert('Failed to complete sign in. Please try again.', 'error');
+                        console.error('setSession error:', error);
+                        showCustomAlert('Failed to restore session from tokens.', 'error');
                         return;
                     }
 
                     if (data?.session) {
-                        console.log('✅ Session established via deep link');
-                        
-                        // Check approval and redirect exactly like your login flow
-                        const { data: profile, error: profileError } = await window.supabase
-                            .from('profiles')
-                            .select('role, is_approved')
-                            .eq('id', data.session.user.id)
-                            .single();
-
-                        if (profileError || !profile) {
-                            showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
-                            return;
-                        }
-
-                        if (!profile.is_approved) {
-                            await window.supabase.auth.signOut();
-                            showCustomAlert('Your account is waiting for admin approval.', 'warning');
-                            return;
-                        }
-
-                        if (profile.role === 'admin' || profile.role === 'small_admin') {
-                            window.location.href = 'html/admin.html';
-                        } else {
-                            window.location.href = 'html/home.html';
-                        }
+                        console.log('✅ Session set via fragment tokens');
+                        await handlePostLoginRedirect(data.session);
+                        return;
                     }
                 }
-            });
+            }
 
-            console.log('✅ Deep link handler initialized');
-        } catch (err) {
-            console.error('Deep link init error:', err);
-        }
+            // PKCE: exchange code for session
+            if (code) {
+                console.log('🔄 Exchanging PKCE code for session...');
+                const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
+
+                if (error) {
+                    console.error('Code exchange error:', error);
+                    showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
+                    return;
+                }
+
+                if (data?.session) {
+                    console.log('✅ Session established via PKCE code exchange');
+                    await handlePostLoginRedirect(data.session);
+                    return;
+                }
+            }
+
+            // Nothing worked
+            console.error('❌ No code or tokens found in URL. Full URL:', url);
+            showCustomAlert('Authentication failed. No authorization code received.', 'error');
+        });
+
+        console.log('✅ Deep link handler initialized');
+    } catch (err) {
+        console.error('Deep link init error:', err);
     }
+}
 
+// Extracted redirect logic so both login methods use the same path
+async function handlePostLoginRedirect(session) {
+    try {
+        const { data: profile, error: profileError } = await window.supabase
+            .from('profiles')
+            .select('role, is_approved')
+            .eq('id', session.user.id)
+            .single();
+
+        if (profileError || !profile) {
+            showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
+            return;
+        }
+
+        if (!profile.is_approved) {
+            await window.supabase.auth.signOut();
+            showCustomAlert('Your account is waiting for admin approval.', 'warning');
+            return;
+        }
+
+        if (profile.role === 'admin' || profile.role === 'small_admin') {
+            window.location.href = 'html/admin.html';
+        } else {
+            window.location.href = 'html/home.html';
+        }
+    } catch (err) {
+        console.error('Post-login redirect error:', err);
+        showCustomAlert('Login succeeded but failed to load your profile.', 'error');
+    }
+}
     // ================= EMAIL VALIDATION =================
     function isValidGmail(email) {
         const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
@@ -683,3 +735,5 @@ authStyles.textContent = `
     }
 `;
 document.head.appendChild(authStyles);
+
+initializeDeepLinkHandler
