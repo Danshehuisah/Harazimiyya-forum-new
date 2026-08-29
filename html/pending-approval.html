@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>Pending Approval | Harazimiyya</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../css/pending-approval.css">
+    
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' https:;
+        connect-src 'self' https://lsbgpfvxmngjynvccujw.supabase.co https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net https://api.cloudinary.com https://*.cloudinary.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.cloudinary.com https://*.supabase.co https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+        font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com;
+        img-src 'self' data: https: https://*.cloudinary.com https://*.supabase.co blob:;
+        media-src 'self' https://*.cloudinary.com https://*.supabase.co blob: data:;
+        frame-src 'self' https://*.youtube.com https://*.vimeo.com;
+        worker-src 'self' blob:;
+    ">
+</head>
+<body>
+    <main class="pending-container">
+        <div class="pending-card">
+            <div class="pending-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h1>⏳ Awaiting Approval</h1>
+            <p class="pending-subtitle">
+                Your account is being reviewed by an administrator.
+            </p>
+            <p class="pending-message">
+                You will be automatically redirected once your account is approved.
+            </p>
+            
+            <div class="pending-status">
+                <div class="status-indicator">
+                    <span class="status-dot pulse"></span>
+                    <span>Waiting for approval...</span>
+                </div>
+                <small>This page will auto-refresh when approved</small>
+            </div>
+
+            <div class="pending-actions">
+                <button id="checkStatusBtn" class="btn-secondary">
+                    <i class="fas fa-sync-alt"></i> Check Status
+                </button>
+                <button id="logoutBtn" class="btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+
+            <div class="pending-footer">
+                <small>Need help? <a href="mailto:support@harazimiyya.com">Contact Support</a></small>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/pending-approval.js"></script>
+</body>
+</html>

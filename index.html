@@ -13,8 +13,6 @@
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Capacitor App Plugin for back button handling -->
-    <!-- <script src="https://unpkg.com/@capacitor/core/dist/index.js"></script> -->
 
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' https:;
@@ -33,14 +31,22 @@
 </head>
 <body>
     <header class="app-header">
-        <h1>Harazimiyya Forum</h1>
+        <div class="header-left">
+            <h1>Harazimiyya Forum</h1>
+        </div>
+        <div class="header-right">
+            <!-- Refresh Button -->
+            <button id="refreshBtn" class="refresh-btn-header" title="Refresh Page">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
         <p class="subtitle">Unity • Knowledge • Brotherhood</p>
     </header>
 
     <main class="container">
         <!-- Login Card -->
         <section class="card" id="authCard">
-            <h2> Welcome Back</h2>
+            <h2>👋 Welcome Back</h2>
             <p class="card-subtitle">Sign in to continue</p>
 
             <!-- Google Button -->
@@ -118,6 +124,7 @@
             <button id="resetPasswordBtn">Send Reset Link</button>
             <p class="switch"><span id="backToLogin">Back to Login</span></p>
         </section>
+
     </main>
 
     <footer class="app-footer">
@@ -127,5 +134,6 @@
     <!-- JavaScript -->
     <script src="js/supabase.js"></script>
     <script src="js/auth.js"></script>
+    
 </body>
 </html>

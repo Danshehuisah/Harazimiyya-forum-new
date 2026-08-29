@@ -1,10 +1,9 @@
 // js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION & GOOGLE OAUTH
-// UPDATED: Added Google OAuth login/signup + Fixed deep link handling
+// UPDATED: Google OAuth users stay logged in while waiting for admin approval
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
     
-    // Wait for Supabase to be ready
     function waitForSupabase() {
         if (window.supabase && window.supabase.auth) {
             console.log("✅ All set! Let's get you started...");
@@ -19,7 +18,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ================= CAPACITOR PLUGIN HELPERS =================
-// Safely get a Capacitor plugin to avoid "undefined" errors
 function getCapacitorPlugin(pluginName) {
     try {
         if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.[pluginName]) {
@@ -104,30 +102,25 @@ function initializeAuth() {
             let redirectTo;
 
             if (isNative) {
-                // Native app deep link
                 redirectTo = 'com.harazimiyya.forum://auth/callback';
             } else if (hostname.includes('vercel.app')) {
-                // Vercel production
                 redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
             } else if (hostname.includes('github.io')) {
-                // GitHub Pages
                 const path = window.location.pathname;
                 const basePath = path.substring(0, path.lastIndexOf('/'));
                 redirectTo = origin + basePath + '/auth-callback.html';
             } else {
-                // Local development
                 redirectTo = origin + '/html/auth-callback.html';
             }
 
             console.log("🔄 OAuth redirectTo:", redirectTo);
 
             if (isNative) {
-                // Native: use Capacitor Browser plugin (in-app browser)
                 const { data, error } = await window.supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
                         redirectTo: redirectTo,
-                        skipBrowserRedirect: true, // Critical: prevents full page redirect
+                        skipBrowserRedirect: true,
                         queryParams: {
                             access_type: 'offline',
                             prompt: 'consent',
@@ -140,12 +133,11 @@ function initializeAuth() {
                 if (data?.url) {
                     const Browser = getCapacitorPlugin('Browser');
                     if (!Browser || typeof Browser.open !== 'function') {
-                        throw new Error('Capacitor Browser plugin is not available. Please ensure @capacitor/browser is installed and synced.');
+                        throw new Error('Capacitor Browser plugin is not available.');
                     }
                     await Browser.open({ url: data.url });
                 }
             } else {
-                // Web: normal redirect flow
                 const { error } = await window.supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
@@ -215,157 +207,148 @@ function initializeAuth() {
     }
 
     // ================= CAPACITOR DEEP LINK HANDLER =================
-    // ================= CAPACITOR DEEP LINK HANDLER =================
-async function initializeDeepLinkHandler() {
-    if (!isCapacitorNative()) {
-        console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
-        return;
-    }
-
-    try {
-        const App = getCapacitorPlugin('App');
-        const Browser = getCapacitorPlugin('Browser');
-
-        if (!App) {
-            console.error('Capacitor App plugin not available.');
+    async function initializeDeepLinkHandler() {
+        if (!isCapacitorNative()) {
+            console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
             return;
         }
 
-        // Prevent duplicate listeners
-        try { await App.removeAllListeners(); } catch (e) {}
+        try {
+            const App = getCapacitorPlugin('App');
+            const Browser = getCapacitorPlugin('Browser');
 
-        App.addListener('appUrlOpen', async ({ url }) => {
-            console.log('📲 RAW deep link received:', url);
-
-            if (!url || !url.startsWith('com.harazimiyya.forum://auth/callback')) {
-                console.log('⏭️ Ignoring non-auth URL:', url);
+            if (!App) {
+                console.error('Capacitor App plugin not available.');
                 return;
             }
 
-            // Close browser
-            if (Browser && typeof Browser.close === 'function') {
-                try { await Browser.close(); } catch (e) {}
-            }
+            try { await App.removeAllListeners(); } catch (e) {}
 
-            // Parse the URL carefully
-            let parsedUrl;
-            try {
-                parsedUrl = new URL(url);
-            } catch (e) {
-                console.error('❌ Failed to parse URL:', e);
-                showCustomAlert('Invalid redirect URL received.', 'error');
-                return;
-            }
+            App.addListener('appUrlOpen', async ({ url }) => {
+                console.log('📲 RAW deep link received:', url);
 
-            console.log('🔍 URL search (query):', parsedUrl.search);
-            console.log('🔍 URL hash (fragment):', parsedUrl.hash);
+                if (!url || !url.startsWith('com.harazimiyya.forum://auth/callback')) {
+                    console.log('⏭️ Ignoring non-auth URL:', url);
+                    return;
+                }
 
-            // Check for Supabase error responses first
-            const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
-            if (errorDesc) {
-                console.error('❌ Supabase returned error in URL:', errorDesc);
-                showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
-                return;
-            }
+                if (Browser && typeof Browser.close === 'function') {
+                    try { await Browser.close(); } catch (e) {}
+                }
 
-            // Try to get authorization code from query params (PKCE flow)
-            let code = parsedUrl.searchParams.get('code');
-            
-            // If no code in query, check hash fragment (some flows put it there)
-            if (!code && parsedUrl.hash) {
-                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                code = hashParams.get('code');
-                console.log('🔍 Checked hash for code:', code);
-            }
+                let parsedUrl;
+                try {
+                    parsedUrl = new URL(url);
+                } catch (e) {
+                    console.error('❌ Failed to parse URL:', e);
+                    showCustomAlert('Invalid redirect URL received.', 'error');
+                    return;
+                }
 
-            // If still no code, check for direct tokens in fragment (implicit flow fallback)
-            if (!code && parsedUrl.hash) {
-                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-                const expiresIn = hashParams.get('expires_in');
-                const tokenType = hashParams.get('token_type');
+                console.log('🔍 URL search (query):', parsedUrl.search);
+                console.log('🔍 URL hash (fragment):', parsedUrl.hash);
 
-                if (accessToken) {
-                    console.log('🔑 Found access_token in fragment, using implicit flow fallback');
-                    const { data, error } = await window.supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken || ''
-                    });
+                const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
+                if (errorDesc) {
+                    console.error('❌ Supabase returned error in URL:', errorDesc);
+                    showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
+                    return;
+                }
+
+                let code = parsedUrl.searchParams.get('code');
+                
+                if (!code && parsedUrl.hash) {
+                    const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                    code = hashParams.get('code');
+                    console.log('🔍 Checked hash for code:', code);
+                }
+
+                if (!code && parsedUrl.hash) {
+                    const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                    const accessToken = hashParams.get('access_token');
+                    const refreshToken = hashParams.get('refresh_token');
+
+                    if (accessToken) {
+                        console.log('🔑 Found access_token in fragment, using implicit flow fallback');
+                        const { data, error } = await window.supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken || ''
+                        });
+
+                        if (error) {
+                            console.error('setSession error:', error);
+                            showCustomAlert('Failed to restore session from tokens.', 'error');
+                            return;
+                        }
+
+                        if (data?.session) {
+                            console.log('✅ Session set via fragment tokens');
+                            await handlePostLoginRedirect(data.session);
+                            return;
+                        }
+                    }
+                }
+
+                if (code) {
+                    console.log('🔄 Exchanging PKCE code for session...');
+                    const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
 
                     if (error) {
-                        console.error('setSession error:', error);
-                        showCustomAlert('Failed to restore session from tokens.', 'error');
+                        console.error('Code exchange error:', error);
+                        showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
                         return;
                     }
 
                     if (data?.session) {
-                        console.log('✅ Session set via fragment tokens');
+                        console.log('✅ Session established via PKCE code exchange');
                         await handlePostLoginRedirect(data.session);
                         return;
                     }
                 }
+
+                console.error('❌ No code or tokens found in URL. Full URL:', url);
+                showCustomAlert('Authentication failed. No authorization code received.', 'error');
+            });
+
+            console.log('✅ Deep link handler initialized');
+        } catch (err) {
+            console.error('Deep link init error:', err);
+        }
+    }
+
+    // ================= POST-LOGIN REDIRECT (FIXED) =================
+    async function handlePostLoginRedirect(session) {
+        try {
+            const { data: profile, error: profileError } = await window.supabase
+                .from('profiles')
+                .select('role, is_approved')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profileError || !profile) {
+                showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
+                return;
             }
 
-            // PKCE: exchange code for session
-            if (code) {
-                console.log('🔄 Exchanging PKCE code for session...');
-                const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                if (error) {
-                    console.error('Code exchange error:', error);
-                    showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
-                    return;
-                }
-
-                if (data?.session) {
-                    console.log('✅ Session established via PKCE code exchange');
-                    await handlePostLoginRedirect(data.session);
-                    return;
-                }
+            // CRITICAL FIX: DON'T sign out pending users!
+            // Let them stay logged in and redirect to pending approval page
+            if (!profile.is_approved) {
+                console.log("⏳ User pending approval - redirecting to pending page");
+                window.location.href = 'html/pending-approval.html';
+                return;
             }
 
-            // Nothing worked
-            console.error('❌ No code or tokens found in URL. Full URL:', url);
-            showCustomAlert('Authentication failed. No authorization code received.', 'error');
-        });
-
-        console.log('✅ Deep link handler initialized');
-    } catch (err) {
-        console.error('Deep link init error:', err);
+            if (profile.role === 'admin' || profile.role === 'small_admin') {
+                window.location.href = 'html/admin.html';
+            } else {
+                window.location.href = 'html/home.html';
+            }
+        } catch (err) {
+            console.error('Post-login redirect error:', err);
+            showCustomAlert('Login succeeded but failed to load your profile.', 'error');
+        }
     }
-}
 
-// Extracted redirect logic so both login methods use the same path
-async function handlePostLoginRedirect(session) {
-    try {
-        const { data: profile, error: profileError } = await window.supabase
-            .from('profiles')
-            .select('role, is_approved')
-            .eq('id', session.user.id)
-            .single();
-
-        if (profileError || !profile) {
-            showCustomAlert('Account setup incomplete. Please contact admin.', 'error');
-            return;
-        }
-
-        if (!profile.is_approved) {
-            await window.supabase.auth.signOut();
-            showCustomAlert('Your account is waiting for admin approval.', 'warning');
-            return;
-        }
-
-        if (profile.role === 'admin' || profile.role === 'small_admin') {
-            window.location.href = 'html/admin.html';
-        } else {
-            window.location.href = 'html/home.html';
-        }
-    } catch (err) {
-        console.error('Post-login redirect error:', err);
-        showCustomAlert('Login succeeded but failed to load your profile.', 'error');
-    }
-}
     // ================= EMAIL VALIDATION =================
     function isValidGmail(email) {
         const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
@@ -518,8 +501,8 @@ async function handlePostLoginRedirect(session) {
 
                 if (!profile.is_approved) {
                     console.log("User not approved yet");
-                    await window.supabase.auth.signOut();
-                    showCustomAlert('⏳ Your account is waiting for admin approval. You\'ll receive an email once approved!', 'warning');
+                    // FIX: Don't sign out! Redirect to pending page
+                    window.location.href = 'html/pending-approval.html';
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = 'Login';
                     return;
@@ -697,6 +680,10 @@ async function handlePostLoginRedirect(session) {
                         console.log("Existing session: Regular member - redirecting to home");
                         window.location.href = 'html/home.html';
                     }
+                } else if (profile && !profile.is_approved) {
+                    // User is logged in but pending approval
+                    console.log("Existing session: User pending approval");
+                    window.location.href = 'html/pending-approval.html';
                 }
             } catch (err) {
                 console.log("👋 Welcome back!");
@@ -705,9 +692,22 @@ async function handlePostLoginRedirect(session) {
     });
 
     // ================= INITIALIZE DEEP LINK HANDLER =================
-    // CRITICAL FIX: This was defined but never called in the original code!
     initializeDeepLinkHandler();
 }
+
+// ================= REFRESH BUTTON =================
+document.addEventListener('DOMContentLoaded', function() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            icon.classList.add('fa-spin');
+            setTimeout(() => {
+                window.location.reload();
+            }, 300);
+        });
+    }
+});
 
 // Add animation styles
 const authStyles = document.createElement('style');
@@ -735,5 +735,3 @@ authStyles.textContent = `
     }
 `;
 document.head.appendChild(authStyles);
-
-initializeDeepLinkHandler
