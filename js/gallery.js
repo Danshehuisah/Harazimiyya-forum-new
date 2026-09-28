@@ -515,21 +515,90 @@ function closeTikTokModal() {
 
 async function uploadFileToCloudinary(file, type) {
     try {
-        if (!file) throw new Error("No file to upload");
+        if (!file) {
+            throw new Error("No file to upload");
+        }
         let folder = CLOUDINARY_CONFIG.folder;
-        if (type === 'image') folder += '/' + CLOUDINARY_CONFIG.subFolders.image;
-        else if (type === 'video') folder += '/' + CLOUDINARY_CONFIG.subFolders.video;
+        if (type === 'image') {
+            folder += '/' + CLOUDINARY_CONFIG.subFolders.image;
+        } else if (type === 'video') {
+            folder += '/' + CLOUDINARY_CONFIG.subFolders.video;
+        }
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+        formData.append(
+            'upload_preset',
+            CLOUDINARY_CONFIG.uploadPreset
+        );
         formData.append('folder', folder);
-        showNotification('📤 Uploading to Cloudinary...', 'info');
-        const response = await fetch(getCloudinaryUploadUrl(), { method: 'POST', body: formData });
-        if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error?.message || 'Cloudinary upload failed'); }
-        const data = await response.json();
-        showNotification('✅ Uploaded to Cloudinary', 'success');
+        console.log("=================================");
+        console.log("📤 CLOUDINARY UPLOAD");
+        console.log("File name:", file.name);
+        console.log("File type:", file.type);
+        console.log("File size:", file.size);
+        console.log("Media type:", type);
+        console.log("Folder:", folder);
+        console.log("Upload preset:", CLOUDINARY_CONFIG.uploadPreset);
+        console.log("=================================");
+        showNotification(
+            '📤 Uploading to Cloudinary...',
+            'info'
+        );
+        const response = await fetch(
+            getCloudinaryUploadUrl(),
+            {
+                method: 'POST',
+                body: formData
+            }
+        );
+
+        // Read the response as text first so we can see
+        // exactly what Cloudinary returned.
+        const responseText = await response.text();
+        console.log(
+            "Cloudinary HTTP status:",
+            response.status
+        );
+        console.log(
+            "Cloudinary response:",
+            responseText
+        );
+        if (!response.ok) {
+            let errorMessage = 'Cloudinary upload failed';
+            try {
+                const errorData = JSON.parse(responseText);
+
+                if (errorData.error?.message) {
+                    errorMessage = errorData.error.message;
+                }
+            } catch (parseError) {
+                if (responseText) {
+                    errorMessage = responseText;
+                }
+            }
+            throw new Error(errorMessage);
+        }
+        const data = JSON.parse(responseText);
+        console.log(
+            "✅ Cloudinary upload successful:",
+            data
+        );
+        showNotification(
+            '✅ Uploaded to Cloudinary',
+            'success'
+        );
         return data.secure_url;
-    } catch (err) { console.error("Cloudinary upload error:", err); showNotification('Failed to upload to Cloudinary: ' + err.message, 'error'); throw err; }
+    } catch (err) {
+        console.error(
+            "❌ Cloudinary upload error:",
+            err
+        );
+        showNotification(
+            'Failed to upload to Cloudinary: ' + err.message,
+            'error'
+        );
+        throw err;
+    }
 }
 
 function addThemeButton() {
