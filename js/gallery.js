@@ -518,32 +518,29 @@ async function uploadFileToCloudinary(file, type) {
         if (!file) {
             throw new Error("No file to upload");
         }
+
         let folder = CLOUDINARY_CONFIG.folder;
+
         if (type === 'image') {
             folder += '/' + CLOUDINARY_CONFIG.subFolders.image;
         } else if (type === 'video') {
             folder += '/' + CLOUDINARY_CONFIG.subFolders.video;
         }
+
         const formData = new FormData();
+
         formData.append('file', file);
         formData.append(
             'upload_preset',
             CLOUDINARY_CONFIG.uploadPreset
         );
         formData.append('folder', folder);
-        console.log("=================================");
-        console.log("📤 CLOUDINARY UPLOAD");
-        console.log("File name:", file.name);
-        console.log("File type:", file.type);
-        console.log("File size:", file.size);
-        console.log("Media type:", type);
-        console.log("Folder:", folder);
-        console.log("Upload preset:", CLOUDINARY_CONFIG.uploadPreset);
-        console.log("=================================");
+
         showNotification(
             '📤 Uploading to Cloudinary...',
             'info'
         );
+
         const response = await fetch(
             getCloudinaryUploadUrl(),
             {
@@ -552,19 +549,14 @@ async function uploadFileToCloudinary(file, type) {
             }
         );
 
-        // Read the response as text first so we can see
-        // exactly what Cloudinary returned.
+        // Read Cloudinary's response as text first.
+        // This keeps the upload handling reliable for both
+        // images and videos.
         const responseText = await response.text();
-        console.log(
-            "Cloudinary HTTP status:",
-            response.status
-        );
-        console.log(
-            "Cloudinary response:",
-            responseText
-        );
+
         if (!response.ok) {
             let errorMessage = 'Cloudinary upload failed';
+
             try {
                 const errorData = JSON.parse(responseText);
 
@@ -576,27 +568,31 @@ async function uploadFileToCloudinary(file, type) {
                     errorMessage = responseText;
                 }
             }
+
             throw new Error(errorMessage);
         }
+
         const data = JSON.parse(responseText);
-        console.log(
-            "✅ Cloudinary upload successful:",
-            data
-        );
+
         showNotification(
             '✅ Uploaded to Cloudinary',
             'success'
         );
+
         return data.secure_url;
+
     } catch (err) {
+
         console.error(
-            "❌ Cloudinary upload error:",
+            'Cloudinary upload error:',
             err
         );
+
         showNotification(
             'Failed to upload to Cloudinary: ' + err.message,
             'error'
         );
+
         throw err;
     }
 }

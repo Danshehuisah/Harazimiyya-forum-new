@@ -430,28 +430,40 @@ function initializeAuth() {
 
             try {
                 const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: window.location.origin + 'html/reset-password.html',
+                    redirectTo: 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html',
                 });
-                
+
                 if (error) throw error;
-                
-                showCustomAlert('✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).', 'success');
-                
+
+                showCustomAlert(
+                    '✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).',
+                    'success'
+                );
+
                 setTimeout(() => {
                     forgotCard.classList.add('hidden');
                     authCard.classList.remove('hidden');
                     document.getElementById('resetEmail').value = '';
                 }, 3000);
-                
+
             } catch (err) {
                 console.error("Reset password error:", err);
-                
+
                 if (err.message.includes('Email not found')) {
-                    showCustomAlert('🤷 Hmm, we don\'t have an account with that email. Would you like to create one?', 'error');
+                    showCustomAlert(
+                        '🤷 Hmm, we don\'t have an account with that email. Would you like to create one?',
+                        'error'
+                    );
                 } else if (err.message.includes('rate limit')) {
-                    showCustomAlert('⏰ Too many attempts! Please wait a few minutes before trying again.', 'error');
+                    showCustomAlert(
+                        '⏰ Too many attempts! Please wait a few minutes before trying again.',
+                        'error'
+                    );
                 } else {
-                    showCustomAlert('😕 Something went wrong. Please check your internet connection and try again.', 'error');
+                    showCustomAlert(
+                        '😕 Something went wrong. Please check your internet connection and try again.',
+                        'error'
+                    );
                 }
             } finally {
                 resetPasswordBtn.disabled = false;
