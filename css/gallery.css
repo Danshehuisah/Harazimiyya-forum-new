@@ -735,6 +735,7 @@ video.media-preview {
     z-index: 10000;
     padding: 16px;
     animation: fadeIn 0.2s ease;
+    overflow-y: auto;
 }
 
 .tiktok-upload-modal.hidden {
@@ -876,6 +877,7 @@ video.media-preview {
 /* File Upload Area */
 .tiktok-file-upload {
     margin-bottom: 20px;
+    overflow-y: auto;
 }
 
 .tiktok-file-upload label {
