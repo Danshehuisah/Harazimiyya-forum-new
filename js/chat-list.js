@@ -1,6 +1,7 @@
 // ============================================
 // HARAZIMIYYA FORUM - CHAT LIST
 // WhatsApp-style chat list with real-time updates
+// + LocalStorage cache: instant load, background refresh
 // ============================================
 
 // Global variables
@@ -16,6 +17,9 @@ let isSearching = false;
 let selectedChatId = null;
 let selectedChatType = null;
 
+// Cache
+const CHATS_CACHE_PREFIX = 'harazimiyya_chatlist_cache_';
+
 // DOM Elements
 const chatListEl = document.getElementById('chatList');
 const searchInput = document.getElementById('searchInput');
@@ -28,6 +32,9 @@ const overlay = document.getElementById('overlay');
 const openSidebar = document.getElementById('openSidebar');
 const closeSidebar = document.getElementById('closeSidebar');
 const logoutBtn = document.getElementById('logoutBtn');
+
+// Header loading spinner (created dynamically if not present in HTML)
+let headerSpinner = document.getElementById('headerSpinner');
 
 // Modal elements
 const groupModal = document.getElementById('groupModal');
@@ -45,6 +52,77 @@ const deleteForAll = document.getElementById('deleteForAll');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 
 // ============================================================
+// LOCALSTORAGE CACHE HELPERS
+// ============================================================
+
+function getCacheKey() {
+    return CHATS_CACHE_PREFIX + (currentUser ? currentUser.id : 'anonymous');
+}
+
+function loadCachedChats() {
+    try {
+        const raw = localStorage.getItem(getCacheKey());
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.chats) || parsed.chats.length === 0) return false;
+        allChats = parsed.chats;
+        renderChats(); // show saved chats instantly
+        console.log('✅ Chats restored from local cache (saved:', parsed.savedAt, ')');
+        return true;
+    } catch (err) {
+        console.warn('⚠️ Could not read chat cache:', err);
+        return false;
+    }
+}
+
+function saveChatsCache() {
+    try {
+        localStorage.setItem(getCacheKey(), JSON.stringify({
+            chats: allChats,
+            savedAt: new Date().toISOString()
+        }));
+    } catch (err) {
+        console.warn('⚠️ Could not save chat cache:', err);
+    }
+}
+
+function clearChatsCache() {
+    try {
+        Object.keys(localStorage)
+            .filter(k => k.startsWith(CHATS_CACHE_PREFIX))
+            .forEach(k => localStorage.removeItem(k));
+    } catch (err) {
+        console.warn('⚠️ Could not clear chat cache:', err);
+    }
+}
+
+// ============================================================
+// HEADER LOADING SPINNER
+// ============================================================
+
+function setupHeaderSpinner() {
+    // If the HTML already has <span id="headerSpinner">, use it.
+    // Otherwise create one and attach it to the page header so no
+    // HTML changes are strictly required.
+    if (headerSpinner) return;
+    headerSpinner = document.createElement('span');
+    headerSpinner.id = 'headerSpinner';
+    headerSpinner.className = 'header-spinner';
+    headerSpinner.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+    headerSpinner.style.display = 'none';
+    const host = document.querySelector('header')
+        || document.querySelector('.header')
+        || document.querySelector('.top-bar')
+        || document.body;
+    host.appendChild(headerSpinner);
+}
+
+function setHeaderLoading(isLoading) {
+    if (!headerSpinner) return;
+    headerSpinner.style.display = isLoading ? 'inline-flex' : 'none';
+}
+
+// ============================================================
 // INITIALIZATION
 // ============================================================
 
@@ -58,13 +136,20 @@ async function initializeChatList() {
         setTimeout(initializeChatList, 100);
         return;
     }
-    
+
+    setupHeaderSpinner();
     await loadUser();
+
+    // 1. Instantly populate from localStorage (no waiting on network)
+    loadCachedChats();
+
+    // 2. Everything below refreshes in the background while the
+    //    user is already reading the cached list.
     await ensureCommunityChat();
     await loadMembers();
     await loadGroups();
     await setupPresenceTracking();
-    await loadChats();
+    await loadChats();      // background refresh; header spinner shows progress
     setupEventListeners();
     setupSidebar();
 }
@@ -81,14 +166,14 @@ async function ensureCommunityChat() {
             .eq('user_id', currentUser.id)
             .eq('chat_id', 'community')
             .maybeSingle();
-        
+
         if (data) {
             console.log('✅ Community Chat already exists for user');
             return;
         }
-        
+
         console.log('📌 Creating Community Chat for user...');
-        
+
         const { data: latestMsg } = await window.supabase
             .from('chat_messages')
             .select('content, created_at, sender_id')
@@ -96,23 +181,23 @@ async function ensureCommunityChat() {
             .is('group_id', null)
             .order('created_at', { ascending: false })
             .limit(1);
-        
+
         let lastMessage = 'Welcome to Harazimiyya Community!';
         let lastMessageTime = new Date().toISOString();
         let lastSenderId = null;
-        
+
         if (latestMsg && latestMsg.length > 0) {
             const { data: sender } = await window.supabase
                 .from('profiles')
                 .select('full_name')
                 .eq('id', latestMsg[0].sender_id)
                 .single();
-            
+
             lastMessage = (sender?.full_name || 'Someone') + ': ' + (latestMsg[0].content || '');
             lastMessageTime = latestMsg[0].created_at;
             lastSenderId = latestMsg[0].sender_id;
         }
-        
+
         const { error: insertError } = await window.supabase
             .from('user_chats')
             .insert([{
@@ -127,13 +212,13 @@ async function ensureCommunityChat() {
                 is_pinned: true,
                 is_deleted: false
             }]);
-        
+
         if (insertError) {
             console.error('Error creating community chat:', insertError);
         } else {
             console.log('✅ Community Chat added to user_chats');
         }
-        
+
     } catch (err) {
         console.error('Error ensuring community chat:', err);
     }
@@ -151,19 +236,19 @@ async function loadUser() {
             return;
         }
         currentUser = user;
-        
+
         const { data: profile, error: profileError } = await window.supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
-        
+
         if (profileError) throw profileError;
         currentProfile = profile;
-        
+
         document.getElementById('userName').textContent = profile.full_name || 'Member';
         updateSidebarAvatar();
-        
+
         console.log('✅ User loaded:', user.email);
     } catch (err) {
         console.error('Error loading user:', err);
@@ -181,7 +266,7 @@ async function loadMembers() {
             .select('id, full_name, email, avatar_url')
             .eq('is_approved', true)
             .order('full_name');
-        
+
         if (error) throw error;
         allMembers = data || [];
         console.log('✅ Members loaded:', allMembers.length);
@@ -196,7 +281,7 @@ async function loadGroups() {
             .from('chat_groups')
             .select('*')
             .order('name');
-        
+
         if (error) throw error;
         allGroups = data || [];
         console.log('✅ Groups loaded:', allGroups.length);
@@ -213,11 +298,11 @@ let presenceChannel = null;
 
 async function setupPresenceTracking() {
     if (!currentUser) return;
-    
+
     if (presenceChannel) {
         await presenceChannel.unsubscribe();
     }
-    
+
     presenceChannel = window.supabase.channel('online-users', {
         config: {
             presence: {
@@ -225,34 +310,34 @@ async function setupPresenceTracking() {
             }
         }
     });
-    
+
     presenceChannel.on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         onlineUsers.clear();
-        
+
         Object.keys(state).forEach(userId => {
             if (userId !== currentUser.id) {
                 onlineUsers.add(userId);
             }
         });
-        
+
         renderChats();
     });
-    
+
     presenceChannel.on('presence', { event: 'join' }, ({ key }) => {
         if (key !== currentUser.id) {
             onlineUsers.add(key);
             renderChats();
         }
     });
-    
+
     presenceChannel.on('presence', { event: 'leave' }, ({ key }) => {
         if (key !== currentUser.id) {
             onlineUsers.delete(key);
             renderChats();
         }
     });
-    
+
     await presenceChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
             await presenceChannel.track({
@@ -271,32 +356,51 @@ function isUserOnline(userId) {
 }
 
 // ============================================================
-// LOAD CHATS
+// LOAD CHATS (background refresh)
 // ============================================================
 
 async function loadChats() {
-    try {
+    const hasCachedData = allChats.length > 0;
+
+    if (hasCachedData) {
+        // User is already reading cached chats — just show the small
+        // header spinner instead of wiping the list.
+        setHeaderLoading(true);
+    } else {
+        // First ever visit (no cache) — fall back to the full loader.
         chatListEl.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading chats...</div>';
-        
+        setHeaderLoading(true);
+    }
+
+    try {
         const { data, error } = await window.supabase
             .rpc('get_user_chats', { p_user_id: currentUser.id });
-        
+
         if (error) throw error;
-        
+
         allChats = data || [];
-        console.log('✅ Chats loaded:', allChats.length);
-        
-        renderChats();
-        
+        console.log('✅ Chats refreshed from Supabase:', allChats.length);
+
+        saveChatsCache();   // persist fresh snapshot for next visit
+        renderChats();      // seamless in-place update
+
     } catch (err) {
         console.error('Error loading chats:', err);
-        chatListEl.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-circle"></i>
-                <h3>Error loading chats</h3>
-                <p>Please refresh the page</p>
-            </div>
-        `;
+
+        if (hasCachedData) {
+            // Keep showing the saved chats; just let the user know.
+            showNotification('Could not refresh — showing saved chats', 'error');
+        } else {
+            chatListEl.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>Error loading chats</h3>
+                    <p>Please check your connection and refresh the page</p>
+                </div>
+            `;
+        }
+    } finally {
+        setHeaderLoading(false);
     }
 }
 
@@ -306,7 +410,7 @@ async function loadChats() {
 
 function renderChats() {
     let filteredChats = [...allChats];
-    
+
     // Filter by tab
     switch(currentTab) {
         case 'community':
@@ -322,7 +426,7 @@ function renderChats() {
         default:
             break;
     }
-    
+
     if (filteredChats.length === 0) {
         chatListEl.innerHTML = `
             <div class="empty-state">
@@ -333,7 +437,7 @@ function renderChats() {
         `;
         return;
     }
-    
+
     // Sort: community first (if in 'all' tab), then by last_message_time
     if (currentTab === 'all') {
         filteredChats.sort((a, b) => {
@@ -342,13 +446,13 @@ function renderChats() {
             return new Date(b.last_message_time) - new Date(a.last_message_time);
         });
     } else {
-        filteredChats.sort((a, b) => 
+        filteredChats.sort((a, b) =>
             new Date(b.last_message_time) - new Date(a.last_message_time)
         );
     }
-    
+
     let html = '';
-    
+
     filteredChats.forEach(chat => {
         const isCommunity = chat.chat_type === 'community';
         const avatarUrl = isCommunity ? null : chat.chat_avatar;
@@ -360,12 +464,12 @@ function renderChats() {
         const isTyping = isCommunity ? false : typingUsers.has(chat.chat_id);
         const chatId = chat.chat_id;
         const chatType = chat.chat_type;
-        
+
         const communityClass = isCommunity ? 'community-chat' : '';
-        
+
         html += `
-            <div class="chat-item ${communityClass}" 
-                 data-chat-id="${chatId}" 
+            <div class="chat-item ${communityClass}"
+                 data-chat-id="${chatId}"
                  data-chat-type="${chatType}"
                  data-chat-name="${name}">
                 <div class="chat-item-avatar">
@@ -375,21 +479,21 @@ function renderChats() {
                         </div>
                         <!--<span class="community-crown">👑</span>-->
                     ` : `
-                        ${avatarUrl ? 
+                        ${avatarUrl ?
                             `<img src="${avatarUrl}" onerror="this.classList.add('fallback'); this.innerHTML='<i class=\\'fas fa-user\\'></i>'; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\'/%3E'">` :
                             `<div class="avatar-fallback"><i class="fas fa-user"></i></div>`
                         }
                         ${isOnline ? `<span class="online-dot"></span>` : ''}
                     `}
                 </div>
-                
+
                 <div class="chat-item-info">
                     <div class="chat-item-header">
                         <span class="chat-item-name">${escapeHtml(name)}</span>
                         <span class="chat-item-time">${time}</span>
                     </div>
                     <div class="chat-item-preview">
-                        ${isTyping ? 
+                        ${isTyping ?
                             `<span class="typing-indicator">Typing...</span>` :
                             `<span class="last-message">${escapeHtml(lastMessage)}</span>`
                         }
@@ -399,9 +503,9 @@ function renderChats() {
             </div>
         `;
     });
-    
+
     chatListEl.innerHTML = html;
-    
+
     document.querySelectorAll('.chat-item').forEach(item => {
         item.addEventListener('click', () => {
             const chatId = item.dataset.chatId;
@@ -409,7 +513,7 @@ function renderChats() {
             const chatName = item.dataset.chatName;
             openChat(chatId, chatType, chatName);
         });
-        
+
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const chatId = item.dataset.chatId;
@@ -428,7 +532,7 @@ function formatTime(dateStr) {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now - date;
-    
+
     if (diff < 60000) return 'now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
@@ -468,7 +572,7 @@ function openChat(chatId, chatType, chatName) {
 
 searchInput.addEventListener('input', function() {
     const query = this.value.trim();
-    
+
     if (query.length > 0) {
         clearSearch.style.display = 'flex';
         performSearch(query);
@@ -486,17 +590,17 @@ clearSearch.addEventListener('click', function() {
 
 function performSearch(query) {
     const q = query.toLowerCase();
-    
+
     // Search members
-    const matchedMembers = allMembers.filter(m => 
+    const matchedMembers = allMembers.filter(m =>
         m.full_name && m.full_name.toLowerCase().includes(q)
     ).filter(m => m.id !== currentUser.id);
-    
+
     // Search groups
-    const matchedGroups = allGroups.filter(g => 
+    const matchedGroups = allGroups.filter(g =>
         g.name && g.name.toLowerCase().includes(q)
     );
-    
+
     if (matchedMembers.length === 0 && matchedGroups.length === 0) {
         searchResults.innerHTML = `
             <div class="search-no-results">
@@ -506,9 +610,9 @@ function performSearch(query) {
         searchResults.classList.add('show');
         return;
     }
-    
+
     let html = '';
-    
+
     // Members section
     if (matchedMembers.length > 0) {
         html += `<div class="search-section-title"><i class="fas fa-users"></i> MEMBERS (${matchedMembers.length})</div>`;
@@ -526,7 +630,7 @@ function performSearch(query) {
             `;
         });
     }
-    
+
     // Groups section
     if (matchedGroups.length > 0) {
         html += `<div class="search-section-title"><i class="fas fa-layer-group"></i> GROUPS (${matchedGroups.length})</div>`;
@@ -543,22 +647,22 @@ function performSearch(query) {
             `;
         });
     }
-    
+
     searchResults.innerHTML = html;
     searchResults.classList.add('show');
-    
+
     document.querySelectorAll('.search-result-item').forEach(item => {
         item.addEventListener('click', function() {
             const type = this.dataset.type;
             const id = this.dataset.id;
             const name = this.dataset.name;
-            
+
             if (type === 'member') {
                 openChat(id, 'private', name);
             } else if (type === 'group') {
                 openChat(id, 'group', name);
             }
-            
+
             searchResults.classList.remove('show');
             searchInput.value = '';
             clearSearch.style.display = 'none';
@@ -611,9 +715,9 @@ async function loadGroupMembers() {
             .select('id, full_name, email, avatar_url')
             .eq('is_approved', true)
             .order('full_name');
-        
+
         if (error) throw error;
-        
+
         let html = '';
         data.forEach(member => {
             if (member.id === currentUser.id) return;
@@ -627,7 +731,7 @@ async function loadGroupMembers() {
             `;
         });
         groupMemberList.innerHTML = html;
-        
+
         groupMemberSearch.oninput = function() {
             const q = this.value.toLowerCase();
             document.querySelectorAll('.member-item').forEach(item => {
@@ -635,7 +739,7 @@ async function loadGroupMembers() {
                 item.style.display = label.includes(q) ? 'flex' : 'none';
             });
         };
-        
+
     } catch (err) {
         console.error('Error loading members:', err);
         groupMemberList.innerHTML = '<div class="error">Error loading members</div>';
@@ -648,20 +752,20 @@ createGroupBtn.addEventListener('click', async function() {
         showNotification('Please enter a group name', 'error');
         return;
     }
-    
+
     const selectedMembers = [];
     document.querySelectorAll('.group-member-checkbox:checked').forEach(cb => {
         selectedMembers.push(cb.value);
     });
-    
+
     if (selectedMembers.length === 0) {
         showNotification('Please select at least one member', 'error');
         return;
     }
-    
+
     this.disabled = true;
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
-    
+
     try {
         const { data: group, error: groupError } = await window.supabase
             .from('chat_groups')
@@ -672,24 +776,24 @@ createGroupBtn.addEventListener('click', async function() {
             }])
             .select()
             .single();
-        
+
         if (groupError) throw groupError;
-        
+
         const membersToAdd = [
             { group_id: group.id, user_id: currentUser.id, role: 'admin' },
             ...selectedMembers.map(id => ({ group_id: group.id, user_id: id, role: 'member' }))
         ];
-        
+
         const { error: membersError } = await window.supabase
             .from('chat_group_members')
             .insert(membersToAdd);
-        
+
         if (membersError) throw membersError;
-        
+
         showNotification(`Group "${name}" created!`, 'success');
         closeGroupModalFn();
         await loadChats();
-        
+
     } catch (err) {
         console.error('Error creating group:', err);
         showNotification('Failed to create group', 'error');
@@ -719,20 +823,25 @@ deleteForMe.addEventListener('click', async function() {
     if (!deleteTarget) return;
     this.disabled = true;
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
-    
+
     try {
         const { error } = await window.supabase
             .rpc('delete_chat_for_user', {
                 p_user_id: currentUser.id,
                 p_chat_id: deleteTarget.chatId
             });
-        
+
         if (error) throw error;
-        
+
+        // Also remove from local cache so a deleted chat doesn't
+        // reappear on next page load before the refresh completes.
+        allChats = allChats.filter(c => c.chat_id !== deleteTarget.chatId);
+        saveChatsCache();
+
         showNotification('Chat deleted', 'success');
         deleteModal.classList.add('hidden');
         await loadChats();
-        
+
     } catch (err) {
         console.error('Error deleting chat:', err);
         showNotification('Failed to delete chat', 'error');
@@ -745,12 +854,12 @@ deleteForMe.addEventListener('click', async function() {
 
 deleteForAll.addEventListener('click', async function() {
     if (!deleteTarget) return;
-    
+
     if (!confirm(`Delete this chat for everyone? This cannot be undone.`)) return;
-    
+
     this.disabled = true;
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
-    
+
     try {
         if (deleteTarget.chatType === 'group') {
             const { data: member, error: memberError } = await window.supabase
@@ -759,20 +868,20 @@ deleteForAll.addEventListener('click', async function() {
                 .eq('group_id', deleteTarget.chatId)
                 .eq('user_id', currentUser.id)
                 .single();
-            
+
             if (memberError) throw memberError;
-            
+
             if (member.role !== 'admin') {
                 showNotification('Only group admins can delete for all', 'error');
                 this.disabled = false;
                 this.innerHTML = '<i class="fas fa-users"></i> Delete for All';
                 return;
             }
-            
+
             await window.supabase.from('chat_group_members').delete().eq('group_id', deleteTarget.chatId);
             await window.supabase.from('chat_messages').delete().eq('group_id', deleteTarget.chatId);
             await window.supabase.from('chat_groups').delete().eq('id', deleteTarget.chatId);
-            
+
             showNotification('Group deleted for everyone', 'success');
         } else {
             const { error } = await window.supabase
@@ -780,14 +889,17 @@ deleteForAll.addEventListener('click', async function() {
                     p_user_id: currentUser.id,
                     p_chat_id: deleteTarget.chatId
                 });
-            
+
             if (error) throw error;
             showNotification('Chat deleted', 'success');
         }
-        
+
+        allChats = allChats.filter(c => c.chat_id !== deleteTarget.chatId);
+        saveChatsCache();
+
         deleteModal.classList.add('hidden');
         await loadChats();
-        
+
     } catch (err) {
         console.error('Error deleting chat:', err);
         showNotification('Failed to delete chat', 'error');
@@ -809,26 +921,27 @@ function setupSidebar() {
             overlay.classList.add('active');
         };
     }
-    
+
     if (closeSidebar) {
         closeSidebar.onclick = () => {
             sidebar.classList.remove('active');
             overlay.classList.remove('active');
         };
     }
-    
+
     if (overlay) {
         overlay.onclick = () => {
             sidebar.classList.remove('active');
             overlay.classList.remove('active');
         };
     }
-    
+
     if (logoutBtn) {
         logoutBtn.onclick = async () => {
             if (presenceChannel) {
                 await presenceChannel.unsubscribe();
             }
+            clearChatsCache(); // don't leave chat history on a signed-out device
             await window.supabase.auth.signOut();
             window.location.href = '../index.html';
         };
@@ -838,7 +951,7 @@ function setupSidebar() {
 function updateSidebarAvatar() {
     const avatarContainer = document.querySelector('.user-avatar');
     if (avatarContainer && currentProfile) {
-        const avatarUrl = currentProfile.avatar_url || 
+        const avatarUrl = currentProfile.avatar_url ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(currentProfile.full_name || 'User')}&background=0c8f5f&color=fff`;
         avatarContainer.innerHTML = `<img src="${avatarUrl}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
     }
@@ -854,7 +967,7 @@ function showNotification(message, type = 'success') {
     const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
     notification.innerHTML = `<i class="fas ${icon}"></i><span>${message}</span>`;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.remove();
     }, 3000);
