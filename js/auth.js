@@ -1,9 +1,11 @@
 // js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION & GOOGLE OAUTH
 // UPDATED: Google OAuth users stay logged in while waiting for admin approval
+// UPDATED: Dynamic forgot-password redirect (local / GitHub Pages / Vercel / Capacitor native)
+// UPDATED: Deep link handler now routes BOTH OAuth callback AND password-reset deep links on native
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
-    
+
     function waitForSupabase() {
         if (window.supabase && window.supabase.auth) {
             console.log("✅ All set! Let's get you started...");
@@ -13,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(waitForSupabase, 100);
         }
     }
-    
+
     waitForSupabase();
 });
 
@@ -37,6 +39,48 @@ function isCapacitorNative() {
     }
 }
 
+// ================= REDIRECT URL BUILDERS (environment-aware) =================
+// Used for Google OAuth callback
+function getOAuthRedirectUrl() {
+    const hostname = window.location.hostname;
+    const origin = window.location.origin;
+
+    if (isCapacitorNative()) {
+        return 'com.harazimiyya.forum://auth/callback';
+    }
+    if (hostname.includes('vercel.app')) {
+        return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
+    }
+    if (hostname.includes('github.io')) {
+        const path = window.location.pathname;
+        const basePath = path.substring(0, path.lastIndexOf('/'));
+        return origin + basePath + '/auth-callback.html';
+    }
+    // localhost / 127.0.0.1 / live server
+    return origin + '/html/auth-callback.html';
+}
+
+// Used for password reset emails
+function getResetRedirectUrl() {
+    const hostname = window.location.hostname;
+    const origin = window.location.origin;
+
+    if (isCapacitorNative()) {
+        // Deep link back into the app - handled by appUrlOpen listener
+        return 'com.harazimiyya.forum://auth/reset-password';
+    }
+    if (hostname === '127.0.0.1' || hostname === 'localhost') {
+        return origin + '/html/reset-password.html';
+    }
+    if (hostname.includes('github.io')) {
+        const path = window.location.pathname;
+        const basePath = path.substring(0, path.lastIndexOf('/'));
+        return origin + basePath + '/reset-password.html';
+    }
+    // Vercel production (and any other production fallback)
+    return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
+}
+
 function initializeAuth() {
     // Get DOM elements
     const loginBtn = document.getElementById('loginBtn');
@@ -49,16 +93,16 @@ function initializeAuth() {
     const authCard = document.getElementById('authCard');
     const registerCard = document.getElementById('registerCard');
     const forgotCard = document.getElementById('forgotCard');
-    
+
     // Google buttons
     const googleLoginBtn = document.getElementById('googleLoginBtn');
     const googleRegisterBtn = document.getElementById('googleRegisterBtn');
-    
+
     // Password toggle elements
     const togglePassword = document.getElementById('togglePassword');
     const toggleRegPassword = document.getElementById('toggleRegPassword');
     const toggleRegConfirmPassword = document.getElementById('toggleRegConfirmPassword');
-    
+
     const password = document.getElementById('password');
     const regPassword = document.getElementById('regPassword');
     const regConfirmPassword = document.getElementById('regConfirmPassword');
@@ -69,7 +113,7 @@ function initializeAuth() {
             toggleBtn.addEventListener('click', function() {
                 const type = inputField.getAttribute('type') === 'password' ? 'text' : 'password';
                 inputField.setAttribute('type', type);
-                
+
                 const icon = this.querySelector('i');
                 if (type === 'text') {
                     icon.classList.remove('fa-eye');
@@ -95,27 +139,10 @@ function initializeAuth() {
                 googleBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting...';
             }
 
-            const hostname = window.location.hostname;
-            const origin = window.location.origin;
-            const isNative = isCapacitorNative();
-
-            let redirectTo;
-
-            if (isNative) {
-                redirectTo = 'com.harazimiyya.forum://auth/callback';
-            } else if (hostname.includes('vercel.app')) {
-                redirectTo = 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
-            } else if (hostname.includes('github.io')) {
-                const path = window.location.pathname;
-                const basePath = path.substring(0, path.lastIndexOf('/'));
-                redirectTo = origin + basePath + '/auth-callback.html';
-            } else {
-                redirectTo = origin + '/html/auth-callback.html';
-            }
-
+            const redirectTo = getOAuthRedirectUrl();
             console.log("🔄 OAuth redirectTo:", redirectTo);
 
-            if (isNative) {
+            if (isCapacitorNative()) {
                 const { data, error } = await window.supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
@@ -129,7 +156,7 @@ function initializeAuth() {
                 });
 
                 if (error) throw error;
-                
+
                 if (data?.url) {
                     const Browser = getCapacitorPlugin('Browser');
                     if (!Browser || typeof Browser.open !== 'function') {
@@ -155,7 +182,7 @@ function initializeAuth() {
         } catch (err) {
             console.error("Google sign in error:", err);
             showCustomAlert('Could not sign in with Google. Please try again.', 'error');
-            
+
             const googleBtn = document.querySelector('#googleLoginBtn, #googleRegisterBtn');
             if (googleBtn) {
                 googleBtn.disabled = false;
@@ -191,14 +218,14 @@ function initializeAuth() {
             if (forgotCard) forgotCard.classList.add('hidden');
         });
     }
-    
+
     if (forgotPassword) {
         forgotPassword.addEventListener('click', () => {
             authCard.classList.add('hidden');
             forgotCard.classList.remove('hidden');
         });
     }
-    
+
     if (backToLogin) {
         backToLogin.addEventListener('click', () => {
             forgotCard.classList.add('hidden');
@@ -207,6 +234,9 @@ function initializeAuth() {
     }
 
     // ================= CAPACITOR DEEP LINK HANDLER =================
+    // Handles BOTH:
+    //   com.harazimiyya.forum://auth/callback        (Google OAuth)
+    //   com.harazimiyya.forum://auth/reset-password  (password recovery)
     async function initializeDeepLinkHandler() {
         if (!isCapacitorNative()) {
             console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
@@ -227,11 +257,12 @@ function initializeAuth() {
             App.addListener('appUrlOpen', async ({ url }) => {
                 console.log('📲 RAW deep link received:', url);
 
-                if (!url || !url.startsWith('com.harazimiyya.forum://auth/callback')) {
-                    console.log('⏭️ Ignoring non-auth URL:', url);
+                if (!url || !url.startsWith('com.harazimiyya.forum://')) {
+                    console.log('⏭️ Ignoring non-app URL:', url);
                     return;
                 }
 
+                // Close the in-app browser if it's open
                 if (Browser && typeof Browser.close === 'function') {
                     try { await Browser.close(); } catch (e) {}
                 }
@@ -245,69 +276,91 @@ function initializeAuth() {
                     return;
                 }
 
-                console.log('🔍 URL search (query):', parsedUrl.search);
-                console.log('🔍 URL hash (fragment):', parsedUrl.hash);
+                // ---------- PASSWORD RESET DEEP LINK ----------
+                if (url.startsWith('com.harazimiyya.forum://auth/reset-password')) {
+                    console.log('🔐 Password reset deep link received');
 
-                const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
-                if (errorDesc) {
-                    console.error('❌ Supabase returned error in URL:', errorDesc);
-                    showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
+                    const tokenHash = parsedUrl.searchParams.get('token_hash');
+                    const type = parsedUrl.searchParams.get('type');
+
+                    if (type === 'recovery' && tokenHash) {
+                        // Navigate to the in-app reset screen with the token.
+                        // reset-password.js will verify it and create the session.
+                        window.location.href = 'html/reset-password.html?token_hash='
+                            + encodeURIComponent(tokenHash) + '&type=recovery';
+                    } else {
+                        console.error('❌ Reset deep link missing token_hash or wrong type');
+                        showCustomAlert('That password reset link is invalid. Please request a new one.', 'error');
+                    }
                     return;
                 }
 
-                let code = parsedUrl.searchParams.get('code');
-                
-                if (!code && parsedUrl.hash) {
-                    const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                    code = hashParams.get('code');
-                    console.log('🔍 Checked hash for code:', code);
-                }
+                // ---------- GOOGLE OAUTH CALLBACK ----------
+                if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
+                    console.log('🔍 URL search (query):', parsedUrl.search);
+                    console.log('🔍 URL hash (fragment):', parsedUrl.hash);
 
-                if (!code && parsedUrl.hash) {
-                    const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                    const accessToken = hashParams.get('access_token');
-                    const refreshToken = hashParams.get('refresh_token');
+                    const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
+                    if (errorDesc) {
+                        console.error('❌ Supabase returned error in URL:', errorDesc);
+                        showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
+                        return;
+                    }
 
-                    if (accessToken) {
-                        console.log('🔑 Found access_token in fragment, using implicit flow fallback');
-                        const { data, error } = await window.supabase.auth.setSession({
-                            access_token: accessToken,
-                            refresh_token: refreshToken || ''
-                        });
+                    let code = parsedUrl.searchParams.get('code');
+
+                    if (!code && parsedUrl.hash) {
+                        const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                        code = hashParams.get('code');
+                        console.log('🔍 Checked hash for code:', code);
+                    }
+
+                    if (!code && parsedUrl.hash) {
+                        const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                        const accessToken = hashParams.get('access_token');
+                        const refreshToken = hashParams.get('refresh_token');
+
+                        if (accessToken) {
+                            console.log('🔑 Found access_token in fragment, using implicit flow fallback');
+                            const { data, error } = await window.supabase.auth.setSession({
+                                access_token: accessToken,
+                                refresh_token: refreshToken || ''
+                            });
+
+                            if (error) {
+                                console.error('setSession error:', error);
+                                showCustomAlert('Failed to restore session from tokens.', 'error');
+                                return;
+                            }
+
+                            if (data?.session) {
+                                console.log('✅ Session set via fragment tokens');
+                                await handlePostLoginRedirect(data.session);
+                                return;
+                            }
+                        }
+                    }
+
+                    if (code) {
+                        console.log('🔄 Exchanging PKCE code for session...');
+                        const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
 
                         if (error) {
-                            console.error('setSession error:', error);
-                            showCustomAlert('Failed to restore session from tokens.', 'error');
+                            console.error('Code exchange error:', error);
+                            showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
                             return;
                         }
 
                         if (data?.session) {
-                            console.log('✅ Session set via fragment tokens');
+                            console.log('✅ Session established via PKCE code exchange');
                             await handlePostLoginRedirect(data.session);
                             return;
                         }
                     }
+
+                    console.error('❌ No code or tokens found in URL. Full URL:', url);
+                    showCustomAlert('Authentication failed. No authorization code received.', 'error');
                 }
-
-                if (code) {
-                    console.log('🔄 Exchanging PKCE code for session...');
-                    const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                    if (error) {
-                        console.error('Code exchange error:', error);
-                        showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
-                        return;
-                    }
-
-                    if (data?.session) {
-                        console.log('✅ Session established via PKCE code exchange');
-                        await handlePostLoginRedirect(data.session);
-                        return;
-                    }
-                }
-
-                console.error('❌ No code or tokens found in URL. Full URL:', url);
-                showCustomAlert('Authentication failed. No authorization code received.', 'error');
             });
 
             console.log('✅ Deep link handler initialized');
@@ -359,13 +412,13 @@ function initializeAuth() {
     function showCustomAlert(message, type = 'info') {
         const existingAlert = document.querySelector('.custom-alert');
         if (existingAlert) existingAlert.remove();
-        
+
         const alert = document.createElement('div');
         alert.className = `custom-alert ${type}`;
-        
+
         let icon = 'fa-info-circle';
         let bgColor = '#3b82f6';
-        
+
         if (type === 'success' || message.includes('✅') || message.includes('CHECK YOUR GMAIL')) {
             icon = 'fa-check-circle';
             bgColor = '#10b981';
@@ -376,12 +429,12 @@ function initializeAuth() {
             icon = 'fa-exclamation-triangle';
             bgColor = '#f59e0b';
         }
-        
+
         alert.innerHTML = `
             <i class="fas ${icon}"></i>
             <span>${message}</span>
         `;
-        
+
         alert.style.cssText = `
             position: fixed;
             top: 20px;
@@ -401,63 +454,69 @@ function initializeAuth() {
             font-size: 15px;
             line-height: 1.5;
         `;
-        
+
         document.body.appendChild(alert);
-        
+
         setTimeout(() => {
             alert.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     }
-// ================= FORGOT PASSWORD =================
-if (resetPasswordBtn) {
-    resetPasswordBtn.addEventListener('click', async () => {
-        const email = document.getElementById('resetEmail').value.trim();
-        
-        if (!email) {
-            showCustomAlert('🤔 Oops! Please enter your email address so we can help you.', 'error');
-            return;
-        }
-        
-        if (!isValidGmail(email)) {
-            showCustomAlert('📧 For now, we only support Gmail addresses. Please use your Gmail account.', 'error');
-            return;
-        }
-        
-        resetPasswordBtn.disabled = true;
-        resetPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-        try {
-            const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html',
-            });
-            
-            if (error) throw error;
-            
-            showCustomAlert('✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).', 'success');
-            
-            setTimeout(() => {
-                forgotCard.classList.add('hidden');
-                authCard.classList.remove('hidden');
-                document.getElementById('resetEmail').value = '';
-            }, 3000);
-            
-        } catch (err) {
-            console.error("Reset password error:", err);
-            
-            if (err.message.includes('Email not found')) {
-                showCustomAlert('🤷 Hmm, we don\'t have an account with that email. Would you like to create one?', 'error');
-            } else if (err.message.includes('rate limit')) {
-                showCustomAlert('⏰ Too many attempts! Please wait a few minutes before trying again.', 'error');
-            } else {
-                showCustomAlert('😕 Something went wrong. Please check your internet connection and try again.', 'error');
+    // ================= FORGOT PASSWORD (FIXED - DYNAMIC REDIRECT) =================
+    if (resetPasswordBtn) {
+        resetPasswordBtn.addEventListener('click', async () => {
+            const email = document.getElementById('resetEmail').value.trim();
+
+            if (!email) {
+                showCustomAlert('🤔 Oops! Please enter your email address so we can help you.', 'error');
+                return;
             }
-        } finally {
-            resetPasswordBtn.disabled = false;
-            resetPasswordBtn.innerHTML = 'Send Reset Link';
-        }
-    });
-}
+
+            if (!isValidGmail(email)) {
+                showCustomAlert('📧 For now, we only support Gmail addresses. Please use your Gmail account.', 'error');
+                return;
+            }
+
+            resetPasswordBtn.disabled = true;
+            resetPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            try {
+                // ✅ FIXED: environment-aware redirect instead of hardcoded Vercel URL
+                const redirectTo = getResetRedirectUrl();
+                console.log("📧 Reset email redirectTo:", redirectTo);
+
+                const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: redirectTo,
+                });
+
+                if (error) throw error;
+
+                showCustomAlert('✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).', 'success');
+
+                setTimeout(() => {
+                    forgotCard.classList.add('hidden');
+                    authCard.classList.remove('hidden');
+                    document.getElementById('resetEmail').value = '';
+                }, 3000);
+
+            } catch (err) {
+                console.error("Reset password error:", err);
+
+                if (err.message.includes('Email not found')) {
+                    showCustomAlert('🤷 Hmm, we don\'t have an account with that email. Would you like to create one?', 'error');
+                } else if (err.message.includes('rate limit')) {
+                    showCustomAlert('⏰ Too many attempts! Please wait a few minutes before trying again.', 'error');
+                } else {
+                    showCustomAlert('😕 Something went wrong. Please check your internet connection and try again.', 'error');
+                }
+            } finally {
+                resetPasswordBtn.disabled = false;
+                resetPasswordBtn.innerHTML = 'Send Reset Link';
+            }
+        });
+    }
+
     // ================= LOGIN =================
     if (loginBtn) {
         loginBtn.addEventListener('click', async () => {
@@ -507,7 +566,7 @@ if (resetPasswordBtn) {
                 }
 
                 console.log("✅ User approved, role:", profile.role);
-                
+
                 if (profile.role === 'admin' || profile.role === 'small_admin') {
                     console.log("Admin or Small Admin detected - redirecting to admin dashboard");
                     window.location.href = 'html/admin.html';
@@ -518,7 +577,7 @@ if (resetPasswordBtn) {
 
             } catch (err) {
                 console.error("Login error:", err);
-                
+
                 if (err.message.includes('Email not confirmed')) {
                     showCustomAlert('📧 Please check your email and click the confirmation link to activate your account.', 'error');
                 } else if (err.message.includes('Invalid login credentials')) {
@@ -526,7 +585,7 @@ if (resetPasswordBtn) {
                 } else {
                     showCustomAlert('😓 Sorry, we couldn\'t log you in. Please check your internet connection and try again.', 'error');
                 }
-                
+
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = 'Login';
             }
@@ -584,12 +643,12 @@ if (resetPasswordBtn) {
 
                 const isRealRegistration = data?.user?.identities && data.user.identities.length > 0;
                 const hasConfirmationSent = data?.user?.confirmation_sent_at !== null;
-                
+
                 if (isRealRegistration && hasConfirmationSent) {
                     // ===== AUTO-CREATE PROFILE =====
                     try {
                         console.log("📝 Creating profile for new user:", data.user.id);
-                        
+
                         const { error: profileError } = await window.supabase
                             .from('profiles')
                             .insert([{
@@ -600,7 +659,7 @@ if (resetPasswordBtn) {
                                 is_approved: false,
                                 created_at: new Date().toISOString()
                             }]);
-                        
+
                         if (profileError) {
                             console.error("Error creating profile:", profileError);
                             showCustomAlert('⚠️ Account created but profile setup had an issue. Please contact admin.', 'warning');
@@ -610,28 +669,28 @@ if (resetPasswordBtn) {
                     } catch (profileErr) {
                         console.error("Profile creation error:", profileErr);
                     }
-                    
+
                     // ===== NEW OTP FLOW: Store email and redirect to OTP verification page =====
                     localStorage.setItem('pending_verification_email', email);
-                    
+
                     showCustomAlert('🎉 Account created! We\'ve sent an 8-digit code to your email.', 'success');
-                    
+
                     setTimeout(() => {
                         window.location.href = 'html/otp-verification.html';
                     }, 1500);
-                    
+
                     // Clear form
                     document.getElementById('regName').value = '';
                     document.getElementById('regEmail').value = '';
                     document.getElementById('regPassword').value = '';
                     document.getElementById('regConfirmPassword').value = '';
-                    
+
                 } else {
                     // This email is already registered
                     showCustomAlert('📧 This email is already registered. Would you like to log in instead?', 'error');
                     registerBtn.disabled = false;
                     registerBtn.innerHTML = 'Create Account';
-                    
+
                     setTimeout(() => {
                         registerCard.classList.add('hidden');
                         authCard.classList.remove('hidden');
@@ -641,10 +700,10 @@ if (resetPasswordBtn) {
 
             } catch (err) {
                 console.error("Registration error:", err);
-                
+
                 if (err.message.includes('User already registered')) {
                     showCustomAlert('👋 Hey! You already have an account with this email. Want to log in instead?', 'error');
-                    
+
                     setTimeout(() => {
                         registerCard.classList.add('hidden');
                         authCard.classList.remove('hidden');
@@ -653,7 +712,7 @@ if (resetPasswordBtn) {
                 } else {
                     showCustomAlert('😕 Something went wrong. Please check your internet connection and try again.', 'error');
                 }
-                
+
                 registerBtn.disabled = false;
                 registerBtn.innerHTML = 'Create Account';
             }
@@ -669,7 +728,7 @@ if (resetPasswordBtn) {
                     .select('role, is_approved')
                     .eq('id', session.user.id)
                     .single();
-                
+
                 if (profile && profile.is_approved) {
                     if (profile.role === 'admin' || profile.role === 'small_admin') {
                         console.log("Existing session: Admin or Small Admin - redirecting to admin dashboard");
@@ -720,7 +779,7 @@ authStyles.textContent = `
             opacity: 1;
         }
     }
-    
+
     @keyframes slideOut {
         from {
             transform: translateX(0);
