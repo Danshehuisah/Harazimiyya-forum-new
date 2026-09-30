@@ -409,69 +409,55 @@ function initializeAuth() {
             setTimeout(() => alert.remove(), 300);
         }, 5000);
     }
+// ================= FORGOT PASSWORD =================
+if (resetPasswordBtn) {
+    resetPasswordBtn.addEventListener('click', async () => {
+        const email = document.getElementById('resetEmail').value.trim();
+        
+        if (!email) {
+            showCustomAlert('🤔 Oops! Please enter your email address so we can help you.', 'error');
+            return;
+        }
+        
+        if (!isValidGmail(email)) {
+            showCustomAlert('📧 For now, we only support Gmail addresses. Please use your Gmail account.', 'error');
+            return;
+        }
+        
+        resetPasswordBtn.disabled = true;
+        resetPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
-    // ================= FORGOT PASSWORD =================
-    if (resetPasswordBtn) {
-        resetPasswordBtn.addEventListener('click', async () => {
-            const email = document.getElementById('resetEmail').value.trim();
+        try {
+            const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html',
+            });
             
-            if (!email) {
-                showCustomAlert('🤔 Oops! Please enter your email address so we can help you.', 'error');
-                return;
-            }
+            if (error) throw error;
             
-            if (!isValidGmail(email)) {
-                showCustomAlert('📧 For now, we only support Gmail addresses. Please use your Gmail account.', 'error');
-                return;
-            }
+            showCustomAlert('✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).', 'success');
             
-            resetPasswordBtn.disabled = true;
-            resetPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
-            try {
-                const { error } = await window.supabase.auth.resetPasswordForEmail(email, {
-                    redirectTo: 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html',
-                });
-
-                if (error) throw error;
-
-                showCustomAlert(
-                    '✅ Done! We\'ve sent a password reset link to your email. Please check your inbox (and spam folder just in case!).',
-                    'success'
-                );
-
-                setTimeout(() => {
-                    forgotCard.classList.add('hidden');
-                    authCard.classList.remove('hidden');
-                    document.getElementById('resetEmail').value = '';
-                }, 3000);
-
-            } catch (err) {
-                console.error("Reset password error:", err);
-
-                if (err.message.includes('Email not found')) {
-                    showCustomAlert(
-                        '🤷 Hmm, we don\'t have an account with that email. Would you like to create one?',
-                        'error'
-                    );
-                } else if (err.message.includes('rate limit')) {
-                    showCustomAlert(
-                        '⏰ Too many attempts! Please wait a few minutes before trying again.',
-                        'error'
-                    );
-                } else {
-                    showCustomAlert(
-                        '😕 Something went wrong. Please check your internet connection and try again.',
-                        'error'
-                    );
-                }
-            } finally {
-                resetPasswordBtn.disabled = false;
-                resetPasswordBtn.innerHTML = 'Send Reset Link';
+            setTimeout(() => {
+                forgotCard.classList.add('hidden');
+                authCard.classList.remove('hidden');
+                document.getElementById('resetEmail').value = '';
+            }, 3000);
+            
+        } catch (err) {
+            console.error("Reset password error:", err);
+            
+            if (err.message.includes('Email not found')) {
+                showCustomAlert('🤷 Hmm, we don\'t have an account with that email. Would you like to create one?', 'error');
+            } else if (err.message.includes('rate limit')) {
+                showCustomAlert('⏰ Too many attempts! Please wait a few minutes before trying again.', 'error');
+            } else {
+                showCustomAlert('😕 Something went wrong. Please check your internet connection and try again.', 'error');
             }
-        });
-    }
-
+        } finally {
+            resetPasswordBtn.disabled = false;
+            resetPasswordBtn.innerHTML = 'Send Reset Link';
+        }
+    });
+}
     // ================= LOGIN =================
     if (loginBtn) {
         loginBtn.addEventListener('click', async () => {
