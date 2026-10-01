@@ -863,22 +863,6 @@ async function toggleReaction(messageId, reactionType) {
 // MESSAGE EVENT HANDLERS
 // ============================================================
 
-function setupMessageEventListeners() {
-    document.querySelectorAll('.message').forEach(msg => {
-        msg.oncontextmenu = (e) => {
-            e.preventDefault();
-            const messageId = msg.dataset.messageId;
-            const senderName = msg.querySelector('small')?.textContent || 'User';
-            const messageContent = msg.querySelector('.message-content p')?.textContent || '';
-            let messageType = 'text';
-            if (msg.querySelector('img')) messageType = 'image';
-            else if (msg.querySelector('video')) messageType = 'video';
-            else if (msg.querySelector('audio')) messageType = 'audio';
-
-            showContextMenu(e.clientX, e.clientY, messageId, senderName, messageContent, messageType);
-        };
-    });
-}
 
 function showContextMenu(x, y, messageId, senderName, messageContent, messageType) {
     const existing = document.querySelector('.context-menu');
@@ -1293,6 +1277,40 @@ function setupLogoutButtons() {
 
 window.toggleReaction = toggleReaction;
 window.handleReplyAction = handleReplyAction;
+
+window.handleDeleteMessage = async function(messageId) {
+    const menu = document.querySelector('.context-menu');
+    if (menu) menu.remove();
+
+    const msgEl = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    const senderId = msgEl?.dataset.senderId;
+
+    const canDelete = senderId === currentUser.id || isAdmin || isSmallAdmin;
+    if (!canDelete) {
+        showNotification('You can only delete your own messages', 'error');
+        return;
+    }
+
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+
+    try {
+        const { error } = await window.supabase
+            .from('chat_messages')
+            .delete()
+            .eq('id', messageId);
+        if (error) throw error;
+
+        showNotification('Message deleted', 'success', 1500);
+
+        // Refresh from server — also persists the fresh snapshot to cache.
+        // (The realtime DELETE subscription triggers the same reload, so
+        // this is just a fast, immediate resync.)
+        loadMessages();
+    } catch (err) {
+        console.error('Error deleting message:', err);
+        showNotification('Failed to delete message', 'error');
+    }
+};
 window.scrollToMessage = function(messageId) {
     const el = document.querySelector(`.message[data-message-id="${messageId}"]`);
     if (el) {
@@ -1348,10 +1366,23 @@ function setupMobileKeyboardFix() {
 
 function setupMessageEventListeners() {
     document.querySelectorAll('.message').forEach(msg => {
-        // Desktop right-click
+        // Shared helper: extract message info from the DOM
+        const getMessageInfo = () => {
+            const messageId = msg.dataset.messageId;
+            const senderName = msg.querySelector('small')?.textContent || 'User';
+            const messageContent = msg.querySelector('.message-content p')?.textContent || '';
+            let messageType = 'text';
+            if (msg.querySelector('img')) messageType = 'image';
+            else if (msg.querySelector('video')) messageType = 'video';
+            else if (msg.querySelector('audio')) messageType = 'audio';
+            return { messageId, senderName, messageContent, messageType };
+        };
+
+        // Desktop right-click → context menu
         msg.oncontextmenu = (e) => {
             e.preventDefault();
-            // Show context menu
+            const { messageId, senderName, messageContent, messageType } = getMessageInfo();
+            showContextMenu(e.clientX, e.clientY, messageId, senderName, messageContent, messageType);
         };
 
         // Mobile touch events
@@ -1376,7 +1407,6 @@ function setupMessageEventListeners() {
             // Only detect horizontal swipes (ignore vertical scrolling)
             if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
                 isSwiping = true;
-                // Show swipe indicator
                 handleSwipeToReply(msg, deltaX);
             }
         }, { passive: true });
@@ -1384,17 +1414,21 @@ function setupMessageEventListeners() {
         msg.addEventListener('touchend', (e) => {
             const deltaTime = Date.now() - touchStartTime;
 
-            // If it was a long-press (500ms+ and not a swipe)
+            // Long-press (500ms+ and not a swipe) → context menu.
+            // passive:false so preventDefault actually suppresses the
+            // synthetic click that would fire right after the long-press.
             if (!isSwiping && deltaTime > 500) {
                 e.preventDefault();
-                showContextMenu(/* ... */);
+                const { messageId, senderName, messageContent, messageType } = getMessageInfo();
+                const touch = e.changedTouches[0];
+                showContextMenu(touch.clientX, touch.clientY, messageId, senderName, messageContent, messageType);
             }
 
             // Reset swipe
             if (isSwiping) {
                 resetSwipeState(msg);
             }
-        }, { passive: true });
+        }, { passive: false });
     });
 }
 

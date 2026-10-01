@@ -986,6 +986,14 @@ body {
     }
 }
 
+.header-spinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    font-size: 16px;
+    color: #ffd700; /* match your theme */
+}
 
 /* ================= LOADING INDICATOR ================= */
 .loading-indicator {
