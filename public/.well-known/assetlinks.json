@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.harazimiyya.forum",
+      "sha256_cert_fingerprints": [
+        "8E:BA:00:AE:AA:7A:BC:B2:B6:59:8D:58:37:8F:EA:91:03:59:97:34:11:77:79:16:3C:39:F1:53:F1:34:7A:E5"
+      ]
+    }
+  }
+]
