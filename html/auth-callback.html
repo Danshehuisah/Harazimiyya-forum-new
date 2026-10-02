@@ -61,22 +61,29 @@
         // Supports: Vercel, GitHub Pages, Local development
         // ============================================================
 
-        function getBasePath() {
-            const origin = window.location.origin;
-            const path = window.location.pathname;
+        function getEnvironment() {
+            const hostname = window.location.hostname;
 
-            // GitHub Pages: https://user.github.io/repo-name/html/auth-callback.html
-            if (origin.includes('github.io')) {
+            if (hostname.includes('vercel.app')) return 'vercel';
+            if (hostname.includes('github.io')) return 'github';
+            if (hostname === 'localhost' || hostname === '127.0.0.1') return 'local';
+            return 'other';
+        }
+
+        // Returns the base URL for the app root (where index.html lives)
+        function getBasePath() {
+            const env = getEnvironment();
+            const origin = window.location.origin;
+
+            if (env === 'vercel') {
+                return origin;
+            }
+            if (env === 'github') {
+                const path = window.location.pathname;
                 const repoRoot = path.substring(0, path.indexOf('/html/'));
                 return origin + repoRoot;
             }
-
-            // Vercel (or any non-local production host)
-            if (origin.includes('vercel.app')) {
-                return origin;
-            }
-
-            // Local development fallback
+            // local development
             return origin + '/www';
         }
 
@@ -125,48 +132,54 @@
                     .eq('id', user.id)
                     .single();
 
-                if (profileError) {
-                    console.warn("Profile fetch warning:", profileError);
+                // ---------- CASE 1: No profile yet (new Google user) ----------
+                if (profileError && profileError.code === 'PGRST116') {
+                    console.log("📝 Creating profile for new Google user...");
 
-                    if (profileError.code === 'PGRST116') {
-                        console.log("Creating profile for Google user...");
-                        const { error: insertError } = await window.supabase
-                            .from('profiles')
-                            .insert([{
-                                id: user.id,
-                                email: user.email,
-                                full_name: user.user_metadata?.full_name || user.email,
-                                role: 'member',
-                                is_approved: false,
-                                created_at: new Date().toISOString()
-                            }]);
+                    const { error: insertError } = await window.supabase
+                        .from('profiles')
+                        .insert([{
+                            id: user.id,
+                            email: user.email,
+                            full_name: user.user_metadata?.full_name || user.email,
+                            role: 'member',
+                            is_approved: false,
+                            created_at: new Date().toISOString()
+                        }]);
 
-                        if (insertError) {
-                            console.error("Error creating profile:", insertError);
-                            window.location.href = basePath + '/index.html';
-                            return;
-                        }
-
-                        window.location.href = basePath + '/html/home.html';
+                    if (insertError) {
+                        console.error("Error creating profile:", insertError);
+                        window.location.href = basePath + '/index.html';
                         return;
                     }
 
+                    // ✅ FIX: Send to pending page (not home)
+                    console.log("⏳ New user pending approval - redirecting to pending page");
+                    window.location.href = basePath + '/html/pending-approval.html';
+                    return;
+                }
+
+                // ---------- CASE 2: Profile fetch error ----------
+                if (profileError) {
+                    console.error("Profile fetch error:", profileError);
                     window.location.href = basePath + '/index.html';
                     return;
                 }
 
+                // ---------- CASE 3: User not approved ----------
+                // ✅ FIX: DON'T sign out. Keep session alive, send to pending page.
                 if (!profile.is_approved) {
-                    await window.supabase.auth.signOut();
-                    alert('⏳ Your account is waiting for admin approval. You\'ll receive an email once approved!');
-                    window.location.href = basePath + '/index.html';
+                    console.log("⏳ User pending approval - redirecting to pending page");
+                    window.location.href = basePath + '/html/pending-approval.html';
                     return;
                 }
 
+                // ---------- CASE 4: User approved ----------
                 if (profile.role === 'admin' || profile.role === 'small_admin') {
-                    console.log("Redirecting to admin dashboard");
+                    console.log("👑 Admin detected - redirecting to admin dashboard");
                     window.location.href = basePath + '/html/admin.html';
                 } else {
-                    console.log("Redirecting to home page");
+                    console.log("👤 Regular member - redirecting to home");
                     window.location.href = basePath + '/html/home.html';
                 }
 
@@ -177,41 +190,6 @@
         }
 
         handleCallback();
-
-    // ============================================================
-// DETECT ENVIRONMENT FOR PROPER REDIRECT
-// ============================================================
-
-function getEnvironment() {
-    const hostname = window.location.hostname;
-    
-    if (hostname.includes('vercel.app')) {
-        return 'vercel';
-    }
-    if (hostname.includes('github.io')) {
-        return 'github';
-    }
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'local';
-    }
-    return 'other';
-}
-
-function getBasePath() {
-    const env = getEnvironment();
-    const origin = window.location.origin;
-    
-    if (env === 'vercel') {
-        return origin + '/html';
-    }
-    if (env === 'github') {
-        const path = window.location.pathname;
-        const basePath = path.substring(0, path.lastIndexOf('/html/'));
-        return origin + basePath + '/html';
-    }
-    // local or other
-    return origin + '/html';
-}
     </script>
 </body>
 </html>
