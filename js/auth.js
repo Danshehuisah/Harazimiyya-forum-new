@@ -2,6 +2,7 @@
 // UPDATED: Google OAuth users stay logged in while waiting for admin approval
 // UPDATED: Dynamic forgot-password redirect (local / GitHub Pages / Vercel / Capacitor native)
 // UPDATED: Deep link handler now routes BOTH OAuth callback AND password-reset deep links on native
+// UPDATED: Cold-start deep link support via App.getLaunchUrl()
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
@@ -237,6 +238,120 @@ function initializeAuth() {
     // Handles BOTH:
     //   com.harazimiyya.forum://auth/callback        (Google OAuth)
     //   com.harazimiyya.forum://auth/reset-password  (password recovery)
+    //
+    // Supports warm-start (appUrlOpen) AND cold-start (getLaunchUrl)
+
+    async function handleDeepLink(url) {
+        console.log('📲 Processing deep link:', url);
+
+        if (!url || !url.startsWith('com.harazimiyya.forum://')) {
+            console.log('⏭️ Ignoring non-app URL:', url);
+            return;
+        }
+
+        // Close the in-app browser if it's open
+        const Browser = getCapacitorPlugin('Browser');
+        if (Browser && typeof Browser.close === 'function') {
+            try { await Browser.close(); } catch (e) {}
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(url);
+        } catch (e) {
+            console.error('❌ Failed to parse URL:', e);
+            showCustomAlert('Invalid redirect URL received.', 'error');
+            return;
+        }
+
+        // ---------- PASSWORD RESET DEEP LINK ----------
+        if (url.startsWith('com.harazimiyya.forum://auth/reset-password')) {
+            console.log('🔐 Password reset deep link received');
+
+            const tokenHash = parsedUrl.searchParams.get('token_hash');
+            const type = parsedUrl.searchParams.get('type');
+
+            if (type === 'recovery' && tokenHash) {
+                // Navigate to the in-app reset screen with the token.
+                // reset-password.js will verify it and create the session.
+                // Using absolute path '/html/...' so it works from any current WebView location.
+                window.location.href = '/html/reset-password.html?token_hash='
+                    + encodeURIComponent(tokenHash) + '&type=recovery';
+            } else {
+                console.error('❌ Reset deep link missing token_hash or wrong type');
+                showCustomAlert('That password reset link is invalid. Please request a new one.', 'error');
+            }
+            return;
+        }
+
+        // ---------- GOOGLE OAUTH CALLBACK ----------
+        if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
+            console.log('🔍 URL search (query):', parsedUrl.search);
+            console.log('🔍 URL hash (fragment):', parsedUrl.hash);
+
+            const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
+            if (errorDesc) {
+                console.error('❌ Supabase returned error in URL:', errorDesc);
+                showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
+                return;
+            }
+
+            let code = parsedUrl.searchParams.get('code');
+
+            if (!code && parsedUrl.hash) {
+                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                code = hashParams.get('code');
+                console.log('🔍 Checked hash for code:', code);
+            }
+
+            if (!code && parsedUrl.hash) {
+                const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+
+                if (accessToken) {
+                    console.log('🔑 Found access_token in fragment, using implicit flow fallback');
+                    const { data, error } = await window.supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken || ''
+                    });
+
+                    if (error) {
+                        console.error('setSession error:', error);
+                        showCustomAlert('Failed to restore session from tokens.', 'error');
+                        return;
+                    }
+
+                    if (data?.session) {
+                        console.log('✅ Session set via fragment tokens');
+                        await handlePostLoginRedirect(data.session);
+                        return;
+                    }
+                }
+            }
+
+            if (code) {
+                console.log('🔄 Exchanging PKCE code for session...');
+                const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
+
+                if (error) {
+                    console.error('Code exchange error:', error);
+                    showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
+                    return;
+                }
+
+                if (data?.session) {
+                    console.log('✅ Session established via PKCE code exchange');
+                    await handlePostLoginRedirect(data.session);
+                    return;
+                }
+            }
+
+            console.error('❌ No code or tokens found in URL. Full URL:', url);
+            showCustomAlert('Authentication failed. No authorization code received.', 'error');
+        }
+    }
+
     async function initializeDeepLinkHandler() {
         if (!isCapacitorNative()) {
             console.log('ℹ️ Not running in Capacitor native mode, skipping deep link handler');
@@ -245,122 +360,30 @@ function initializeAuth() {
 
         try {
             const App = getCapacitorPlugin('App');
-            const Browser = getCapacitorPlugin('Browser');
 
             if (!App) {
                 console.error('Capacitor App plugin not available.');
                 return;
             }
 
-            try { await App.removeAllListeners(); } catch (e) {}
+            // -------- 1) COLD-START: app was closed when deep link was clicked --------
+            try {
+                const launchUrl = await App.getLaunchUrl();
+                if (launchUrl && launchUrl.url) {
+                    console.log('🚀 Cold-start deep link:', launchUrl.url);
+                    // Small delay so DOM & Supabase are ready
+                    setTimeout(() => {
+                        handleDeepLink(launchUrl.url);
+                    }, 500);
+                }
+            } catch (e) {
+                console.warn('getLaunchUrl not supported or failed:', e);
+            }
 
+            // -------- 2) WARM-START: app already running --------
             App.addListener('appUrlOpen', async ({ url }) => {
-                console.log('📲 RAW deep link received:', url);
-
-                if (!url || !url.startsWith('com.harazimiyya.forum://')) {
-                    console.log('⏭️ Ignoring non-app URL:', url);
-                    return;
-                }
-
-                // Close the in-app browser if it's open
-                if (Browser && typeof Browser.close === 'function') {
-                    try { await Browser.close(); } catch (e) {}
-                }
-
-                let parsedUrl;
-                try {
-                    parsedUrl = new URL(url);
-                } catch (e) {
-                    console.error('❌ Failed to parse URL:', e);
-                    showCustomAlert('Invalid redirect URL received.', 'error');
-                    return;
-                }
-
-                // ---------- PASSWORD RESET DEEP LINK ----------
-                if (url.startsWith('com.harazimiyya.forum://auth/reset-password')) {
-                    console.log('🔐 Password reset deep link received');
-
-                    const tokenHash = parsedUrl.searchParams.get('token_hash');
-                    const type = parsedUrl.searchParams.get('type');
-
-                    if (type === 'recovery' && tokenHash) {
-                        // Navigate to the in-app reset screen with the token.
-                        // reset-password.js will verify it and create the session.
-                        window.location.href = 'html/reset-password.html?token_hash='
-                            + encodeURIComponent(tokenHash) + '&type=recovery';
-                    } else {
-                        console.error('❌ Reset deep link missing token_hash or wrong type');
-                        showCustomAlert('That password reset link is invalid. Please request a new one.', 'error');
-                    }
-                    return;
-                }
-
-                // ---------- GOOGLE OAUTH CALLBACK ----------
-                if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
-                    console.log('🔍 URL search (query):', parsedUrl.search);
-                    console.log('🔍 URL hash (fragment):', parsedUrl.hash);
-
-                    const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
-                    if (errorDesc) {
-                        console.error('❌ Supabase returned error in URL:', errorDesc);
-                        showCustomAlert('Google sign-in failed: ' + errorDesc, 'error');
-                        return;
-                    }
-
-                    let code = parsedUrl.searchParams.get('code');
-
-                    if (!code && parsedUrl.hash) {
-                        const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                        code = hashParams.get('code');
-                        console.log('🔍 Checked hash for code:', code);
-                    }
-
-                    if (!code && parsedUrl.hash) {
-                        const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-                        const accessToken = hashParams.get('access_token');
-                        const refreshToken = hashParams.get('refresh_token');
-
-                        if (accessToken) {
-                            console.log('🔑 Found access_token in fragment, using implicit flow fallback');
-                            const { data, error } = await window.supabase.auth.setSession({
-                                access_token: accessToken,
-                                refresh_token: refreshToken || ''
-                            });
-
-                            if (error) {
-                                console.error('setSession error:', error);
-                                showCustomAlert('Failed to restore session from tokens.', 'error');
-                                return;
-                            }
-
-                            if (data?.session) {
-                                console.log('✅ Session set via fragment tokens');
-                                await handlePostLoginRedirect(data.session);
-                                return;
-                            }
-                        }
-                    }
-
-                    if (code) {
-                        console.log('🔄 Exchanging PKCE code for session...');
-                        const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                        if (error) {
-                            console.error('Code exchange error:', error);
-                            showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
-                            return;
-                        }
-
-                        if (data?.session) {
-                            console.log('✅ Session established via PKCE code exchange');
-                            await handlePostLoginRedirect(data.session);
-                            return;
-                        }
-                    }
-
-                    console.error('❌ No code or tokens found in URL. Full URL:', url);
-                    showCustomAlert('Authentication failed. No authorization code received.', 'error');
-                }
+                console.log('📲 RAW deep link received (warm-start):', url);
+                await handleDeepLink(url);
             });
 
             console.log('✅ Deep link handler initialized');
