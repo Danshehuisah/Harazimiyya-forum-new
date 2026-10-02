@@ -256,7 +256,7 @@ async function checkApprovalStatus(useRefreshFallback = true) {
 
         showStatus(
             'pending',
-            'Waiting for approval...'
+            // 'Waiting for approval...'
         );
 
     } catch (err) {
