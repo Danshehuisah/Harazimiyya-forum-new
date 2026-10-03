@@ -47,7 +47,8 @@ function getOAuthRedirectUrl() {
     const origin = window.location.origin;
 
     if (isCapacitorNative()) {
-        return 'com.harazimiyya.forum://auth/callback';
+        // ✅ Use HTTPS App Link
+        return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
     }
     if (hostname.includes('vercel.app')) {
         return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
@@ -57,7 +58,6 @@ function getOAuthRedirectUrl() {
         const basePath = path.substring(0, path.lastIndexOf('/'));
         return origin + basePath + '/auth-callback.html';
     }
-    // localhost / 127.0.0.1 / live server
     return origin + '/html/auth-callback.html';
 }
 
@@ -67,8 +67,8 @@ function getResetRedirectUrl() {
     const origin = window.location.origin;
 
     if (isCapacitorNative()) {
-        // Deep link back into the app - handled by appUrlOpen listener
-        return 'com.harazimiyya.forum://auth/reset-password';
+        // ✅ Use HTTPS App Link instead of custom scheme
+        return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
     }
     if (hostname === '127.0.0.1' || hostname === 'localhost') {
         return origin + '/html/reset-password.html';
@@ -78,9 +78,9 @@ function getResetRedirectUrl() {
         const basePath = path.substring(0, path.lastIndexOf('/'));
         return origin + basePath + '/reset-password.html';
     }
-    // Vercel production (and any other production fallback)
     return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
 }
+
 
 function initializeAuth() {
     // Get DOM elements
