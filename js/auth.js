@@ -62,15 +62,17 @@ function getResetRedirectUrl() {
     const hostname = window.location.hostname;
     const origin = window.location.origin;
 
+    // 🟢 Force the exact GitHub Pages URL for production
+    if (hostname.includes('github.io')) {
+        return 'https://danshehuisah.github.io/Harazimiyya-forum-new/html/reset-password.html';
+    }
+    
+    // Local development
     if (hostname === '127.0.0.1' || hostname === 'localhost') {
         return origin + getLocalBasePath() + '/html/reset-password.html';
     }
-    if (hostname.includes('github.io')) {
-        const path = window.location.pathname;
-        const basePath = path.substring(0, path.lastIndexOf('/html/'));
-        return origin + basePath + '/html/reset-password.html';
-    }
-    // Fallback for production
+    
+    // Fallback
     return 'https://danshehuisah.github.io/Harazimiyya-forum-new/html/reset-password.html';
 }
 
