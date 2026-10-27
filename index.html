@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Harazimiyya Forum - Login</title>
     
-    <!-- Font Awesome for Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <!-- CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <script>
+        // ✅ GENERATE TIMESTAMP FOR CACHE BUSTING
+        const cacheBuster = new Date().getTime();
+        
+        // ✅ DYNAMICALLY LOAD CSS WITH TIMESTAMP
+        document.write(`<link rel="stylesheet" href="css/style.css?v=${cacheBuster}">`);
+    </script>
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -26,22 +31,24 @@
         worker-src 'self' blob:;
     ">
 
-    <!-- Navigation handler (must be loaded after Capacitor) -->
-    <script src="js/navigation.js"></script>
+    <script>
+        // Load navigation with timestamp
+        document.write(`<script src="js/navigation.js?v=${cacheBuster}"><\/script>`);
+    </script>
 </head>
 <body>
     <header class="app-header">
-        <div class="header-left">
-            <h1>Harazimiyya Forum</h1>
+        <div class="header-top">
+            <div class="header-left">
+                <h1>Harazimiyya Forum</h1>
+            </div>
+            <div class="header-right">
+                <!-- Deep Refresh Button -->
+                <button id="deepRefreshBtn" class="deep-refresh-btn" title="Hard Refresh App">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
         </div>
-        
-        <div class="header-right">
-            <!-- Deep Refresh Button -->
-            <button id="deepRefreshBtn" class="deep-refresh-btn" title="Hard Refresh App">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-        </div>
-        
         <p class="subtitle">Unity • Knowledge • Brotherhood</p>
     </header>
 
@@ -51,7 +58,6 @@
             <h2>👋 Welcome Back</h2>
             <p class="card-subtitle">Sign in to continue</p>
 
-            <!-- Google Button -->
             <button id="googleLoginBtn" class="btn-google">
                 <img src="icons/google-svg.svg" alt="Google" class="google-icon">
                 Continue with Google
@@ -72,7 +78,6 @@
             
             <button id="loginBtn">Login</button>
             
-            <!-- Forgot Password Link -->
             <div style="text-align: right; margin-top: 8px;">
                 <span id="forgotPassword" style="color: #0b5e3b; font-size: 0.85rem; cursor: pointer; font-weight: 600;">Forgot Password?</span>
             </div>
@@ -85,7 +90,6 @@
             <h2>🌟 Join Our Community</h2>
             <p class="card-subtitle">Create your account to get started</p>
 
-            <!-- Google Button -->
             <button id="googleRegisterBtn" class="btn-google">
                 <img src="icons/google-svg.svg" alt="Google" class="google-icon">
                 Continue with Google
@@ -126,47 +130,31 @@
             <button id="resetPasswordBtn">Send Reset Link</button>
             <p class="switch"><span id="backToLogin">Back to Login</span></p>
         </section>
-
     </main>
 
     <footer class="app-footer">
         <small>© 2026 Harazimiyya Forum. All rights reserved.</small>
     </footer>
 
-    <!-- JavaScript -->
-    <script src="js/supabase.js"></script>
-    <script src="js/auth.js"></script>
+    <script>
+        // Load JS files with timestamp so they always fetch the latest version
+        document.write(`<script src="js/supabase.js?v=${cacheBuster}"><\/script>`);
+        document.write(`<script src="js/auth.js?v=${cacheBuster}"><\/script>`);
+    </script>
     
-    
-    <!-- Deep Refresh Script -->
+    <!-- Deep Refresh Button Logic -->
     <script>
         document.getElementById('deepRefreshBtn').addEventListener('click', function() {
-            // Add spin animation
             const icon = this.querySelector('i');
             icon.classList.add('fa-spin');
             
-            // Trigger deep refresh after 300ms for visual feedback
             setTimeout(() => {
-                // Appending a timestamp forces the browser to bypass cache
+                // Appending a timestamp to the main URL and reloading
                 const url = new URL(window.location.href);
                 url.searchParams.set('t', new Date().getTime());
                 window.location.replace(url.toString());
             }, 300);
         });
     </script>
-
-    <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('ServiceWorker registration successful');
-        })
-        .catch((err) => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
-    });
-  }
-</script>
 </body>
 </html>
