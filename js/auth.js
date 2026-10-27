@@ -190,7 +190,7 @@ function initializeAuth() {
         }
     }
 
-    
+
     // Setup Google buttons
     if (googleLoginBtn) {
         googleLoginBtn.addEventListener('click', signInWithGoogle);
@@ -237,7 +237,7 @@ function initializeAuth() {
         if (!url) return;
 
         const isCustomScheme = url.startsWith('com.harazimiyya.forum://');
-        const isHttpsAppLink = url.startsWith('https://harazimiyya-forum-new.vercel.app/');
+        const isHttpsAppLink = url.startsWith('https://danshehuisah.github.io/Harazimiyya-forum-new/');
 
         if (!isCustomScheme && !isHttpsAppLink) {
             console.log('⏭️ Ignoring non-app URL:', url);
