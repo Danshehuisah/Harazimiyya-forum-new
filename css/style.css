@@ -222,6 +222,7 @@ button:disabled {
 @media (max-width: 768px) {
     .app-header {
         padding: 1rem;
+        background-color: var(--primary-color); /* Or your preferred green */
     }
     
     .app-header h1 {
@@ -418,57 +419,58 @@ button:disabled {
     padding: 0 16px;
     color: var(--text-muted, #888);
 }
+/* ================= REFRESH BUTTON & HEADER FIXES ================= */
 
-
-
-/* ================= REFRESH BUTTON ================= */
-.refresh-btn-header {
-    background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    cursor: pointer;
+/* Fix the Header Layout */
+.app-header {
+    background-color: #0b5e3b !important; /* Force the Islamic Green background */
+    color: white !important;
+    padding: 15px 20px;
     display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    position: relative;
+}
+
+.header-top {
+    align-items: center;
+    width: 100%;
+}
+
+.header-left {
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
-    transition: all 0.3s;
-    flex-shrink: 0;
-    backdrop-filter: blur(4px);
+    width: 100%;
+    
 }
 
-.refresh-btn-header:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.05);
-}
-
-.refresh-btn-header:active {
-    transform: scale(0.95);
-}
-
-
-/* ================= HEADER DEEP REFRESH BUTTON ================= */
-
-/* Ensure the header properly aligns the left and right elements */
-.app-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+.header-left h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: white !important;
 }
 
 .header-right {
-    display: flex;
-    align-items: center;
+    position: absolute;
+    right: 15px;
 }
 
-/* The Refresh Button Styling */
+.subtitle {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8) !important;
+    text-align: center;
+    width: 100%;
+}
+
+/* Deep Refresh Button Styling */
 .deep-refresh-btn {
     background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white !important;
     width: 38px;
     height: 38px;
     border-radius: 50%;
@@ -488,11 +490,4 @@ button:disabled {
 
 .deep-refresh-btn:active {
     transform: scale(0.95);
-}
-
-/* Make sure the subtitle stays on its own line */
-.app-header .subtitle {
-    width: 100%;
-    text-align: center;
-    margin-top: 4px;
 }

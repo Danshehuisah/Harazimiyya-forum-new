@@ -8,14 +8,6 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
-    <script>
-        // ✅ GENERATE TIMESTAMP FOR CACHE BUSTING
-        const cacheBuster = new Date().getTime();
-        
-        // ✅ DYNAMICALLY LOAD CSS WITH TIMESTAMP
-        document.write(`<link rel="stylesheet" href="css/style.css?v=${cacheBuster}">`);
-    </script>
-    
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -32,6 +24,12 @@
     ">
 
     <script>
+        // ✅ GENERATE TIMESTAMP FOR CACHE BUSTING
+        const cacheBuster = new Date().getTime();
+        
+        // ✅ DYNAMICALLY LOAD CSS WITH TIMESTAMP
+        document.write(`<link rel="stylesheet" href="css/style.css?v=${cacheBuster}">`);
+        
         // Load navigation with timestamp
         document.write(`<script src="js/navigation.js?v=${cacheBuster}"><\/script>`);
     </script>
@@ -42,14 +40,15 @@
             <div class="header-left">
                 <h1>Harazimiyya Forum</h1>
             </div>
-            <div class="header-right">
-                <!-- Deep Refresh Button -->
-                <button id="deepRefreshBtn" class="deep-refresh-btn" title="Hard Refresh App">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-            </div>
+            <p class="subtitle">Unity • Knowledge • Brotherhood</p>
         </div>
-        <p class="subtitle">Unity • Knowledge • Brotherhood</p>
+        
+        <div class="header-right">
+            <!-- Deep Refresh Button -->
+            <button id="deepRefreshBtn" class="deep-refresh-btn" title="Hard Refresh App">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
     </header>
 
     <main class="container">
