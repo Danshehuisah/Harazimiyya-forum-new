@@ -137,6 +137,7 @@
     <script src="js/supabase.js"></script>
     <script src="js/auth.js"></script>
     
+    
     <!-- Deep Refresh Script -->
     <script>
         document.getElementById('deepRefreshBtn').addEventListener('click', function() {
@@ -153,5 +154,19 @@
             }, 300);
         });
     </script>
+
+    <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('ServiceWorker registration successful');
+        })
+        .catch((err) => {
+          console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+  }
+</script>
 </body>
 </html>
