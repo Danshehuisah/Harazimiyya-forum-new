@@ -1,8 +1,5 @@
 // js/auth.js - COMPLETE FIXED VERSION WITH OTP VERIFICATION & GOOGLE OAUTH
-// UPDATED: Google OAuth users stay logged in while waiting for admin approval
-// UPDATED: Dynamic forgot-password redirect (local / GitHub Pages / Vercel / Capacitor native)
-// UPDATED: Deep link handler now routes BOTH OAuth callback AND password-reset deep links on native
-// UPDATED: Cold-start deep link support via App.getLaunchUrl()
+// UPDATED: Fixed local pathing (/www/), HTTPS App Links for deep linking, and cold-start support.
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("✨ Getting things ready for you...");
@@ -40,14 +37,19 @@ function isCapacitorNative() {
     }
 }
 
-// ================= REDIRECT URL BUILDERS (environment-aware) =================
+// ================= PATH HELPERS =================
+// Detects if local dev is running from project root (/www/) or inside www folder
+function getLocalBasePath() {
+    const path = window.location.pathname;
+    return path.includes('/www/') ? '/www' : '';
+}
+
 // Used for Google OAuth callback
 function getOAuthRedirectUrl() {
     const hostname = window.location.hostname;
     const origin = window.location.origin;
 
     if (isCapacitorNative()) {
-        // ✅ Use HTTPS App Link
         return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
     }
     if (hostname.includes('vercel.app')) {
@@ -55,10 +57,12 @@ function getOAuthRedirectUrl() {
     }
     if (hostname.includes('github.io')) {
         const path = window.location.pathname;
-        const basePath = path.substring(0, path.lastIndexOf('/'));
-        return origin + basePath + '/auth-callback.html';
+        const basePath = path.substring(0, path.lastIndexOf('/html/'));
+        return origin + basePath + '/html/auth-callback.html';
     }
-    return origin + '/html/auth-callback.html';
+    
+    // Local development
+    return origin + getLocalBasePath() + '/html/auth-callback.html';
 }
 
 // Used for password reset emails
@@ -67,20 +71,20 @@ function getResetRedirectUrl() {
     const origin = window.location.origin;
 
     if (isCapacitorNative()) {
-        // ✅ Use HTTPS App Link instead of custom scheme
         return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
     }
     if (hostname === '127.0.0.1' || hostname === 'localhost') {
-        return origin + '/html/reset-password.html';
+        return origin + getLocalBasePath() + '/html/reset-password.html';
     }
     if (hostname.includes('github.io')) {
         const path = window.location.pathname;
-        const basePath = path.substring(0, path.lastIndexOf('/'));
-        return origin + basePath + '/reset-password.html';
+        const basePath = path.substring(0, path.lastIndexOf('/html/'));
+        return origin + basePath + '/html/reset-password.html';
     }
+    
+    // Vercel or other production
     return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
 }
-
 
 function initializeAuth() {
     // Get DOM elements
@@ -235,16 +239,15 @@ function initializeAuth() {
     }
 
     // ================= CAPACITOR DEEP LINK HANDLER =================
-    // Handles BOTH:
-    //   com.harazimiyya.forum://auth/callback        (Google OAuth)
-    //   com.harazimiyya.forum://auth/reset-password  (password recovery)
-    //
-    // Supports warm-start (appUrlOpen) AND cold-start (getLaunchUrl)
-
     async function handleDeepLink(url) {
         console.log('📲 Processing deep link:', url);
 
-        if (!url || !url.startsWith('com.harazimiyya.forum://')) {
+        if (!url) return;
+
+        const isCustomScheme = url.startsWith('com.harazimiyya.forum://');
+        const isHttpsAppLink = url.startsWith('https://harazimiyya-forum-new.vercel.app/');
+
+        if (!isCustomScheme && !isHttpsAppLink) {
             console.log('⏭️ Ignoring non-app URL:', url);
             return;
         }
@@ -264,30 +267,37 @@ function initializeAuth() {
             return;
         }
 
-        // ---------- PASSWORD RESET DEEP LINK ----------
-        if (url.startsWith('com.harazimiyya.forum://auth/reset-password')) {
+        // ---------- PASSWORD RESET DEEP LINK (Handles both Custom Scheme & HTTPS) ----------
+        const isReset = isCustomScheme
+            ? url.includes('com.harazimiyya.forum://auth/reset-password')
+            : parsedUrl.pathname === '/html/reset-password.html';
+
+        if (isReset) {
             console.log('🔐 Password reset deep link received');
 
             const tokenHash = parsedUrl.searchParams.get('token_hash');
             const type = parsedUrl.searchParams.get('type');
 
             if (type === 'recovery' && tokenHash) {
-                // Navigate to the in-app reset screen with the token.
-                // reset-password.js will verify it and create the session.
-                // Using absolute path '/html/...' so it works from any current WebView location.
+                // Absolute path so Capacitor WebView can find it
                 window.location.href = '/html/reset-password.html?token_hash='
                     + encodeURIComponent(tokenHash) + '&type=recovery';
+            } else if (parsedUrl.search) {
+                window.location.href = '/html/reset-password.html' + parsedUrl.search;
             } else {
-                console.error('❌ Reset deep link missing token_hash or wrong type');
+                console.error('❌ Reset deep link missing token');
                 showCustomAlert('That password reset link is invalid. Please request a new one.', 'error');
             }
             return;
         }
 
-        // ---------- GOOGLE OAUTH CALLBACK ----------
-        if (url.startsWith('com.harazimiyya.forum://auth/callback')) {
-            console.log('🔍 URL search (query):', parsedUrl.search);
-            console.log('🔍 URL hash (fragment):', parsedUrl.hash);
+        // ---------- GOOGLE OAUTH CALLBACK (Handles both Custom Scheme & HTTPS) ----------
+        const isCallback = isCustomScheme
+            ? url.includes('com.harazimiyya.forum://auth/callback')
+            : parsedUrl.pathname === '/html/auth-callback.html';
+
+        if (isCallback) {
+            console.log('🔍 OAuth callback received via deep link');
 
             const errorDesc = parsedUrl.searchParams.get('error_description') || parsedUrl.searchParams.get('error');
             if (errorDesc) {
@@ -297,11 +307,9 @@ function initializeAuth() {
             }
 
             let code = parsedUrl.searchParams.get('code');
-
             if (!code && parsedUrl.hash) {
                 const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
                 code = hashParams.get('code');
-                console.log('🔍 Checked hash for code:', code);
             }
 
             if (!code && parsedUrl.hash) {
@@ -310,20 +318,12 @@ function initializeAuth() {
                 const refreshToken = hashParams.get('refresh_token');
 
                 if (accessToken) {
-                    console.log('🔑 Found access_token in fragment, using implicit flow fallback');
                     const { data, error } = await window.supabase.auth.setSession({
                         access_token: accessToken,
                         refresh_token: refreshToken || ''
                     });
 
-                    if (error) {
-                        console.error('setSession error:', error);
-                        showCustomAlert('Failed to restore session from tokens.', 'error');
-                        return;
-                    }
-
-                    if (data?.session) {
-                        console.log('✅ Session set via fragment tokens');
+                    if (!error && data?.session) {
                         await handlePostLoginRedirect(data.session);
                         return;
                     }
@@ -331,23 +331,14 @@ function initializeAuth() {
             }
 
             if (code) {
-                console.log('🔄 Exchanging PKCE code for session...');
                 const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                if (error) {
-                    console.error('Code exchange error:', error);
-                    showCustomAlert('Failed to complete sign in: ' + error.message, 'error');
-                    return;
-                }
-
-                if (data?.session) {
-                    console.log('✅ Session established via PKCE code exchange');
+                if (!error && data?.session) {
                     await handlePostLoginRedirect(data.session);
                     return;
                 }
             }
 
-            console.error('❌ No code or tokens found in URL. Full URL:', url);
+            console.error('❌ No code or tokens found in URL.');
             showCustomAlert('Authentication failed. No authorization code received.', 'error');
         }
     }
@@ -366,21 +357,20 @@ function initializeAuth() {
                 return;
             }
 
-            // -------- 1) COLD-START: app was closed when deep link was clicked --------
+            // COLD-START
             try {
                 const launchUrl = await App.getLaunchUrl();
                 if (launchUrl && launchUrl.url) {
                     console.log('🚀 Cold-start deep link:', launchUrl.url);
-                    // Small delay so DOM & Supabase are ready
                     setTimeout(() => {
                         handleDeepLink(launchUrl.url);
                     }, 500);
                 }
             } catch (e) {
-                console.warn('getLaunchUrl not supported or failed:', e);
+                console.warn('getLaunchUrl failed:', e);
             }
 
-            // -------- 2) WARM-START: app already running --------
+            // WARM-START
             App.addListener('appUrlOpen', async ({ url }) => {
                 console.log('📲 RAW deep link received (warm-start):', url);
                 await handleDeepLink(url);
@@ -392,7 +382,7 @@ function initializeAuth() {
         }
     }
 
-    // ================= POST-LOGIN REDIRECT (FIXED) =================
+    // ================= POST-LOGIN REDIRECT =================
     async function handlePostLoginRedirect(session) {
         try {
             const { data: profile, error: profileError } = await window.supabase
@@ -406,8 +396,6 @@ function initializeAuth() {
                 return;
             }
 
-            // CRITICAL FIX: DON'T sign out pending users!
-            // Let them stay logged in and redirect to pending approval page
             if (!profile.is_approved) {
                 console.log("⏳ User pending approval - redirecting to pending page");
                 window.location.href = 'html/pending-approval.html';
@@ -486,7 +474,7 @@ function initializeAuth() {
         }, 5000);
     }
 
-    // ================= FORGOT PASSWORD (FIXED - DYNAMIC REDIRECT) =================
+    // ================= FORGOT PASSWORD =================
     if (resetPasswordBtn) {
         resetPasswordBtn.addEventListener('click', async () => {
             const email = document.getElementById('resetEmail').value.trim();
@@ -505,7 +493,6 @@ function initializeAuth() {
             resetPasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
 
             try {
-                // ✅ FIXED: environment-aware redirect instead of hardcoded Vercel URL
                 const redirectTo = getResetRedirectUrl();
                 console.log("📧 Reset email redirectTo:", redirectTo);
 
@@ -581,7 +568,6 @@ function initializeAuth() {
 
                 if (!profile.is_approved) {
                     console.log("User not approved yet");
-                    // FIX: Don't sign out! Redirect to pending page
                     window.location.href = 'html/pending-approval.html';
                     loginBtn.disabled = false;
                     loginBtn.innerHTML = 'Login';
@@ -668,7 +654,6 @@ function initializeAuth() {
                 const hasConfirmationSent = data?.user?.confirmation_sent_at !== null;
 
                 if (isRealRegistration && hasConfirmationSent) {
-                    // ===== AUTO-CREATE PROFILE =====
                     try {
                         console.log("📝 Creating profile for new user:", data.user.id);
 
@@ -693,7 +678,6 @@ function initializeAuth() {
                         console.error("Profile creation error:", profileErr);
                     }
 
-                    // ===== NEW OTP FLOW: Store email and redirect to OTP verification page =====
                     localStorage.setItem('pending_verification_email', email);
 
                     showCustomAlert('🎉 Account created! We\'ve sent an 8-digit code to your email.', 'success');
@@ -702,14 +686,12 @@ function initializeAuth() {
                         window.location.href = 'html/otp-verification.html';
                     }, 1500);
 
-                    // Clear form
                     document.getElementById('regName').value = '';
                     document.getElementById('regEmail').value = '';
                     document.getElementById('regPassword').value = '';
                     document.getElementById('regConfirmPassword').value = '';
 
                 } else {
-                    // This email is already registered
                     showCustomAlert('📧 This email is already registered. Would you like to log in instead?', 'error');
                     registerBtn.disabled = false;
                     registerBtn.innerHTML = 'Create Account';
@@ -761,7 +743,6 @@ function initializeAuth() {
                         window.location.href = 'html/home.html';
                     }
                 } else if (profile && !profile.is_approved) {
-                    // User is logged in but pending approval
                     console.log("Existing session: User pending approval");
                     window.location.href = 'html/pending-approval.html';
                 }

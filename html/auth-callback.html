@@ -58,33 +58,32 @@
     <script>
         // ============================================================
         // OAUTH CALLBACK HANDLER - PKCE FLOW
-        // Supports: Vercel, GitHub Pages, Local development
         // ============================================================
 
-        function getEnvironment() {
-            const hostname = window.location.hostname;
-
-            if (hostname.includes('vercel.app')) return 'vercel';
-            if (hostname.includes('github.io')) return 'github';
-            if (hostname === 'localhost' || hostname === '127.0.0.1') return 'local';
-            return 'other';
-        }
-
-        // Returns the base URL for the app root (where index.html lives)
         function getBasePath() {
-            const env = getEnvironment();
+            const hostname = window.location.hostname;
             const origin = window.location.origin;
 
-            if (env === 'vercel') {
+            // Vercel production (root = www)
+            if (hostname.includes('vercel.app')) {
                 return origin;
             }
-            if (env === 'github') {
+
+            // GitHub Pages
+            if (hostname.includes('github.io')) {
                 const path = window.location.pathname;
                 const repoRoot = path.substring(0, path.indexOf('/html/'));
                 return origin + repoRoot;
             }
-            // local development
-            return origin + '/www';
+
+            // Local development — safely detects /www/ presence
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                return window.location.pathname.includes('/www/')
+                    ? origin + '/www'
+                    : origin;
+            }
+
+            return origin;
         }
 
         const basePath = getBasePath();
@@ -100,7 +99,6 @@
                 let session = null;
 
                 if (code) {
-                    // PKCE flow: exchange authorization code for session
                     console.log("🔑 Exchanging code for session...");
                     const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
 
@@ -112,7 +110,6 @@
 
                     session = data?.session;
                 } else {
-                    // Fallback: check if session already exists
                     const { data: { session: existingSession } } = await window.supabase.auth.getSession();
                     session = existingSession;
                 }
@@ -153,7 +150,6 @@
                         return;
                     }
 
-                    // ✅ FIX: Send to pending page (not home)
                     console.log("⏳ New user pending approval - redirecting to pending page");
                     window.location.href = basePath + '/html/pending-approval.html';
                     return;
@@ -167,7 +163,6 @@
                 }
 
                 // ---------- CASE 3: User not approved ----------
-                // ✅ FIX: DON'T sign out. Keep session alive, send to pending page.
                 if (!profile.is_approved) {
                     console.log("⏳ User pending approval - redirecting to pending page");
                     window.location.href = basePath + '/html/pending-approval.html';
