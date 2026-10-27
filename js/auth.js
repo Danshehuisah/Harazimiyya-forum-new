@@ -50,9 +50,7 @@ function getOAuthRedirectUrl() {
 
     // 🟢 BOTH Native App and Web now go to the GitHub Pages Bridge
     if (isCapacitorNative() || hostname.includes('github.io')) {
-        const path = window.location.pathname;
-        const basePath = path.includes('/html/') ? path.substring(0, path.lastIndexOf('/html/')) : path;
-        return origin + (hostname.includes('github.io') ? basePath : '/Harazimiyya-forum-new') + '/html/auth-callback.html';
+        return 'https://danshehuisah.github.io/Harazimiyya-forum-new/html/auth-callback.html';
     }
     
     // Local development

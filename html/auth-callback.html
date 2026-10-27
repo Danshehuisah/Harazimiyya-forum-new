@@ -38,8 +38,7 @@
             const hostname = window.location.hostname;
             const origin = window.location.origin;
             if (hostname.includes('github.io')) {
-                const path = window.location.pathname;
-                return origin + path.substring(0, path.indexOf('/html/'));
+                return 'https://danshehuisah.github.io/Harazimiyya-forum-new';
             }
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
                 return window.location.pathname.includes('/www/') ? origin + '/www' : origin;
@@ -50,26 +49,39 @@
         const basePath = getBasePath();
         const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
 
-        async function handleCallback() {
+                async function handleCallback() {
             try {
                 const url = new URL(window.location.href);
-                const code = url.searchParams.get('code');
                 let session = null;
 
+                // 1. Check for Code (PKCE flow)
+                const code = url.searchParams.get('code');
                 if (code) {
                     const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
                     if (error) throw error;
                     session = data?.session;
-                } else {
-                    const { data: { session: existingSession } } = await window.supabase.auth.getSession();
-                    session = existingSession;
+                } 
+                // 2. Check for Hash tokens (Implicit flow - what you got)
+                else if (url.hash) {
+                    const hashParams = new URLSearchParams(url.hash.replace('#', ''));
+                    const accessToken = hashParams.get('access_token');
+                    const refreshToken = hashParams.get('refresh_token');
+
+                    if (accessToken) {
+                        const { data, error } = await window.supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken || ''
+                        });
+                        if (error) throw error;
+                        session = data?.session;
+                    }
                 }
 
                 if (!session) {
                     window.location.href = basePath + '/index.html';
                     return;
                 }
-
+        
                 // 🟢 BRIDGE LOGIC: If Native App, pass tokens via Custom Scheme
                 if (isNative) {
                     const accessToken = session.access_token;
