@@ -34,7 +34,14 @@
         <div class="header-left">
             <h1>Harazimiyya Forum</h1>
         </div>
-
+        
+        <div class="header-right">
+            <!-- Deep Refresh Button -->
+            <button id="deepRefreshBtn" class="deep-refresh-btn" title="Hard Refresh App">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        
         <p class="subtitle">Unity • Knowledge • Brotherhood</p>
     </header>
 
@@ -130,5 +137,21 @@
     <script src="js/supabase.js"></script>
     <script src="js/auth.js"></script>
     
+    <!-- Deep Refresh Script -->
+    <script>
+        document.getElementById('deepRefreshBtn').addEventListener('click', function() {
+            // Add spin animation
+            const icon = this.querySelector('i');
+            icon.classList.add('fa-spin');
+            
+            // Trigger deep refresh after 300ms for visual feedback
+            setTimeout(() => {
+                // Appending a timestamp forces the browser to bypass cache
+                const url = new URL(window.location.href);
+                url.searchParams.set('t', new Date().getTime());
+                window.location.replace(url.toString());
+            }, 300);
+        });
+    </script>
 </body>
 </html>
