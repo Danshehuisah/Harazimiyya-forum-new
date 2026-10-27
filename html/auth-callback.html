@@ -6,108 +6,59 @@
     <title>Authenticating...</title>
     <style>
         body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #0a1f1a;
-            color: #f1f5f4;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+            background: #0a1f1a; color: #f1f5f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px;
         }
-        .container {
-            text-align: center;
-        }
+        .container { text-align: center; }
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.1);
-            border-top-color: #0c8f5f;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 20px auto;
+            width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #0c8f5f; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 20px auto;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .icon {
-            font-size: 48px;
-            color: #0c8f5f;
-            margin-bottom: 16px;
-        }
-        h2 {
-            color: #f1f5f4;
-            margin-bottom: 8px;
-        }
-        p {
-            color: #9ca3af;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .icon { font-size: 48px; color: #0c8f5f; margin-bottom: 16px; }
+        h2 { color: #f1f5f4; margin-bottom: 8px; }
+        p { color: #9ca3af; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="icon">🕌</div>
-        <h2>Authenticating...</h2>
-        <p>Please wait while we complete your sign in</p>
-        <div class="spinner"></div>
+        <h2 id="statusText">Authenticating...</h2>
+        <p id="subText">Please wait while we complete your sign in</p>
+        <div class="spinner" id="loadingSpinner"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Assuming supabase.js initializes window.supabase -->
     <script src="../js/supabase.js"></script>
+    
     <script>
-        // ============================================================
-        // OAUTH CALLBACK HANDLER - PKCE FLOW
-        // ============================================================
-
         function getBasePath() {
             const hostname = window.location.hostname;
             const origin = window.location.origin;
-
-            // Vercel production (root = www)
-            if (hostname.includes('vercel.app')) {
-                return origin;
-            }
-
-            // GitHub Pages
             if (hostname.includes('github.io')) {
                 const path = window.location.pathname;
-                const repoRoot = path.substring(0, path.indexOf('/html/'));
-                return origin + repoRoot;
+                return origin + path.substring(0, path.indexOf('/html/'));
             }
-
-            // Local development — safely detects /www/ presence
             if (hostname === 'localhost' || hostname === '127.0.0.1') {
-                return window.location.pathname.includes('/www/')
-                    ? origin + '/www'
-                    : origin;
+                return window.location.pathname.includes('/www/') ? origin + '/www' : origin;
             }
-
             return origin;
         }
 
         const basePath = getBasePath();
+        const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
 
         async function handleCallback() {
             try {
-                console.log("🔄 Processing OAuth callback...");
-                console.log("📁 Base path:", basePath);
-
                 const url = new URL(window.location.href);
                 const code = url.searchParams.get('code');
-
                 let session = null;
 
                 if (code) {
-                    console.log("🔑 Exchanging code for session...");
                     const { data, error } = await window.supabase.auth.exchangeCodeForSession(code);
-
-                    if (error) {
-                        console.error("Code exchange error:", error);
-                        window.location.href = basePath + '/index.html';
-                        return;
-                    }
-
+                    if (error) throw error;
                     session = data?.session;
                 } else {
                     const { data: { session: existingSession } } = await window.supabase.auth.getSession();
@@ -115,72 +66,69 @@
                 }
 
                 if (!session) {
-                    console.log("No session found");
                     window.location.href = basePath + '/index.html';
                     return;
                 }
 
-                const user = session.user;
-                console.log("✅ User authenticated:", user.email);
+                // 🟢 BRIDGE LOGIC: If Native App, pass tokens via Custom Scheme
+                if (isNative) {
+                    const accessToken = session.access_token;
+                    const refreshToken = session.refresh_token;
+                    const deepLink = `com.harazimiyya.forum://auth/callback#access_token=${accessToken}&refresh_token=${refreshToken}`;
+                    
+                    document.getElementById('statusText').innerText = "Opening App...";
+                    document.getElementById('subText').innerText = "Redirecting you to the Harazimiyya app.";
+                    
+                    // Trigger deep link
+                    window.location.href = deepLink;
 
+                    // Fallback if app is not installed
+                    setTimeout(() => {
+                        document.getElementById('loadingSpinner').style.display = 'none';
+                        document.getElementById('statusText').innerText = "App not opening?";
+                        document.getElementById('subText').innerHTML = "Please ensure the app is installed, or <a href='" + basePath + "/html/home.html' style='color:#0c8f5f;'>click here to use the Web App</a>.";
+                    }, 2500);
+                    return;
+                }
+
+                // 🔵 PWA / WEB LOGIC: Redirect normally
+                const user = session.user;
                 const { data: profile, error: profileError } = await window.supabase
                     .from('profiles')
                     .select('role, is_approved')
                     .eq('id', user.id)
                     .single();
 
-                // ---------- CASE 1: No profile yet (new Google user) ----------
                 if (profileError && profileError.code === 'PGRST116') {
-                    console.log("📝 Creating profile for new Google user...");
-
+                    // Create profile for new Google user
                     const { error: insertError } = await window.supabase
                         .from('profiles')
                         .insert([{
-                            id: user.id,
-                            email: user.email,
+                            id: user.id, email: user.email,
                             full_name: user.user_metadata?.full_name || user.email,
-                            role: 'member',
-                            is_approved: false,
-                            created_at: new Date().toISOString()
+                            role: 'member', is_approved: false, created_at: new Date().toISOString()
                         }]);
 
-                    if (insertError) {
-                        console.error("Error creating profile:", insertError);
-                        window.location.href = basePath + '/index.html';
-                        return;
-                    }
-
-                    console.log("⏳ New user pending approval - redirecting to pending page");
+                    if (insertError) throw insertError;
                     window.location.href = basePath + '/html/pending-approval.html';
                     return;
                 }
 
-                // ---------- CASE 2: Profile fetch error ----------
-                if (profileError) {
-                    console.error("Profile fetch error:", profileError);
-                    window.location.href = basePath + '/index.html';
-                    return;
-                }
+                if (profileError) throw profileError;
 
-                // ---------- CASE 3: User not approved ----------
                 if (!profile.is_approved) {
-                    console.log("⏳ User pending approval - redirecting to pending page");
                     window.location.href = basePath + '/html/pending-approval.html';
-                    return;
-                }
-
-                // ---------- CASE 4: User approved ----------
-                if (profile.role === 'admin' || profile.role === 'small_admin') {
-                    console.log("👑 Admin detected - redirecting to admin dashboard");
+                } else if (profile.role === 'admin' || profile.role === 'small_admin') {
                     window.location.href = basePath + '/html/admin.html';
                 } else {
-                    console.log("👤 Regular member - redirecting to home");
                     window.location.href = basePath + '/html/home.html';
                 }
 
             } catch (err) {
                 console.error("Callback error:", err);
-                window.location.href = basePath + '/index.html';
+                document.getElementById('statusText').innerText = "Authentication Failed";
+                document.getElementById('subText').innerText = "Redirecting back to login...";
+                setTimeout(() => window.location.href = basePath + '/index.html', 2000);
             }
         }
 

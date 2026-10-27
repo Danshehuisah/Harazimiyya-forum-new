@@ -38,41 +38,32 @@ function isCapacitorNative() {
 }
 
 // ================= PATH HELPERS =================
-// Detects if local dev is running from project root (/www/) or inside www folder
 function getLocalBasePath() {
     const path = window.location.pathname;
     return path.includes('/www/') ? '/www' : '';
 }
 
-// Used for Google OAuth callback
+// Used for Google OAuth callback (Bridge Pattern)
 function getOAuthRedirectUrl() {
     const hostname = window.location.hostname;
     const origin = window.location.origin;
 
-    if (isCapacitorNative()) {
-        return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
-    }
-    if (hostname.includes('vercel.app')) {
-        return 'https://harazimiyya-forum-new.vercel.app/html/auth-callback.html';
-    }
-    if (hostname.includes('github.io')) {
+    // 🟢 BOTH Native App and Web now go to the GitHub Pages Bridge
+    if (isCapacitorNative() || hostname.includes('github.io')) {
         const path = window.location.pathname;
-        const basePath = path.substring(0, path.lastIndexOf('/html/'));
-        return origin + basePath + '/html/auth-callback.html';
+        const basePath = path.includes('/html/') ? path.substring(0, path.lastIndexOf('/html/')) : path;
+        return origin + (hostname.includes('github.io') ? basePath : '/Harazimiyya-forum-new') + '/html/auth-callback.html';
     }
     
     // Local development
     return origin + getLocalBasePath() + '/html/auth-callback.html';
 }
 
-// Used for password reset emails
+// Used for password reset emails (Keeping this for fallback, though we are moving to OTP)
 function getResetRedirectUrl() {
     const hostname = window.location.hostname;
     const origin = window.location.origin;
 
-    if (isCapacitorNative()) {
-        return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
-    }
     if (hostname === '127.0.0.1' || hostname === 'localhost') {
         return origin + getLocalBasePath() + '/html/reset-password.html';
     }
@@ -81,9 +72,8 @@ function getResetRedirectUrl() {
         const basePath = path.substring(0, path.lastIndexOf('/html/'));
         return origin + basePath + '/html/reset-password.html';
     }
-    
-    // Vercel or other production
-    return 'https://harazimiyya-forum-new.vercel.app/html/reset-password.html';
+    // Fallback for production
+    return 'https://danshehuisah.github.io/Harazimiyya-forum-new/html/reset-password.html';
 }
 
 function initializeAuth() {
@@ -135,7 +125,7 @@ function initializeAuth() {
     setupPasswordToggle(toggleRegPassword, regPassword);
     setupPasswordToggle(toggleRegConfirmPassword, regConfirmPassword);
 
-    // ================= GOOGLE OAUTH =================
+        // ================= GOOGLE OAUTH =================
     async function signInWithGoogle() {
         try {
             const googleBtn = document.activeElement;
@@ -170,6 +160,7 @@ function initializeAuth() {
                     await Browser.open({ url: data.url });
                 }
             } else {
+                // Web / PWA Flow
                 const { error } = await window.supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
@@ -199,6 +190,7 @@ function initializeAuth() {
         }
     }
 
+    
     // Setup Google buttons
     if (googleLoginBtn) {
         googleLoginBtn.addEventListener('click', signInWithGoogle);
