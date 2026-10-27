@@ -1,10 +1,9 @@
 const CACHE_NAME = 'harazimiyya-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/auth.js',
-  '/js/supabase.js'
+  './index.html',
+  './css/style.css',
+  './js/auth.js',
+  './js/supabase.js'
 ];
 
 // Install event - cache core files

@@ -23,12 +23,15 @@
         worker-src 'self' blob:;
     ">
 
-    <script>
+        <script>
         // ✅ GENERATE TIMESTAMP FOR CACHE BUSTING
         const cacheBuster = new Date().getTime();
         
         // ✅ DYNAMICALLY LOAD CSS WITH TIMESTAMP
         document.write(`<link rel="stylesheet" href="css/style.css?v=${cacheBuster}">`);
+        
+        // ✅ LOAD MANIFEST
+        document.write(`<link rel="manifest" href="manifest.json?v=${cacheBuster}">`);
         
         // Load navigation with timestamp
         document.write(`<script src="js/navigation.js?v=${cacheBuster}"><\/script>`);
